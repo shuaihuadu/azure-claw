@@ -1,0 +1,24 @@
+# Deployment logs (contains sensitive .env files with passwords)
+logs/
+
+# Azure Bicep build output (generated from main.bicep, do not edit manually)
+infra/azuredeploy.json
+
+# Azure Developer CLI
+.azure/
+
+# Node.js (in case of local testing)
+node_modules/
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Editor / IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.swp
+*.swo
+*~

@@ -1,0 +1,724 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.41.2.15936",
+      "templateHash": "3138272485149846980"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all resources"
+      }
+    },
+    "osType": {
+      "type": "string",
+      "defaultValue": "Ubuntu",
+      "allowedValues": [
+        "Ubuntu",
+        "Windows"
+      ],
+      "metadata": {
+        "description": "Operating system type"
+      }
+    },
+    "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_B2s",
+      "metadata": {
+        "description": "VM size SKU"
+      }
+    },
+    "adminUsername": {
+      "type": "string",
+      "defaultValue": "azureclaw",
+      "metadata": {
+        "description": "Admin username"
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Admin password (password authentication)"
+      }
+    },
+    "enablePublicHttps": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Enable public HTTPS access via Caddy + Let's Encrypt (uses Azure VM DNS name)"
+      }
+    },
+    "gatewayPassword": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Gateway password for authentication (required when enablePublicHttps is true)"
+      }
+    }
+  },
+  "variables": {
+    "repoBaseUrl": "https://raw.githubusercontent.com/shuaihuadu/azure-claw/main/scripts",
+    "ubuntuScriptUrl": "[format('{0}/install-openclaw-ubuntu.sh', variables('repoBaseUrl'))]",
+    "windowsScriptUrl": "[format('{0}/install-openclaw-windows.ps1', variables('repoBaseUrl'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "network",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "osType": {
+            "value": "[parameters('osType')]"
+          },
+          "enablePublicHttps": {
+            "value": "[parameters('enablePublicHttps')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "3303585286063609446"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources"
+              }
+            },
+            "osType": {
+              "type": "string",
+              "allowedValues": [
+                "Ubuntu",
+                "Windows"
+              ],
+              "metadata": {
+                "description": "Operating system type, controls NSG inbound rules"
+              }
+            },
+            "enablePublicHttps": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Enable public HTTPS access via Caddy reverse proxy"
+              }
+            }
+          },
+          "variables": {
+            "sshRule": {
+              "name": "Allow-SSH",
+              "properties": {
+                "priority": 1000,
+                "direction": "Inbound",
+                "access": "Allow",
+                "protocol": "Tcp",
+                "sourcePortRange": "*",
+                "destinationPortRange": "22",
+                "sourceAddressPrefix": "*",
+                "destinationAddressPrefix": "*"
+              }
+            },
+            "rdpRule": {
+              "name": "Allow-RDP",
+              "properties": {
+                "priority": 1000,
+                "direction": "Inbound",
+                "access": "Allow",
+                "protocol": "Tcp",
+                "sourcePortRange": "*",
+                "destinationPortRange": "3389",
+                "sourceAddressPrefix": "*",
+                "destinationAddressPrefix": "*"
+              }
+            },
+            "gatewayRule": {
+              "name": "Allow-Gateway",
+              "properties": {
+                "priority": 1100,
+                "direction": "Inbound",
+                "access": "Allow",
+                "protocol": "Tcp",
+                "sourcePortRange": "*",
+                "destinationPortRange": "18789",
+                "sourceAddressPrefix": "*",
+                "destinationAddressPrefix": "*"
+              }
+            },
+            "httpsRule": {
+              "name": "Allow-HTTPS",
+              "properties": {
+                "priority": 1200,
+                "direction": "Inbound",
+                "access": "Allow",
+                "protocol": "Tcp",
+                "sourcePortRange": "*",
+                "destinationPortRange": "443",
+                "sourceAddressPrefix": "*",
+                "destinationAddressPrefix": "*"
+              }
+            },
+            "nsgRules": "[if(equals(parameters('osType'), 'Ubuntu'), if(parameters('enablePublicHttps'), createArray(variables('sshRule'), variables('httpsRule')), createArray(variables('sshRule'), variables('gatewayRule'))), if(parameters('enablePublicHttps'), createArray(variables('rdpRule'), variables('httpsRule')), createArray(variables('rdpRule'), variables('gatewayRule'))))]",
+            "dnsLabel": "[format('openclaw-{0}', uniqueString(resourceGroup().id))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2024-05-01",
+              "name": "openclaw-nsg",
+              "location": "[parameters('location')]",
+              "properties": {
+                "securityRules": "[variables('nsgRules')]"
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2024-05-01",
+              "name": "openclaw-vnet",
+              "location": "[parameters('location')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "10.0.0.0/16"
+                  ]
+                },
+                "subnets": [
+                  {
+                    "name": "openclaw-subnet",
+                    "properties": {
+                      "addressPrefix": "10.0.0.0/24",
+                      "networkSecurityGroup": {
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'openclaw-nsg')]"
+                      }
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', 'openclaw-nsg')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2024-05-01",
+              "name": "openclaw-ip",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "publicIPAllocationMethod": "Static",
+                "dnsSettings": {
+                  "domainNameLabel": "[variables('dnsLabel')]"
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "subnetId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', 'openclaw-vnet'), '2024-05-01').subnets[0].id]"
+            },
+            "publicIpId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/publicIPAddresses', 'openclaw-ip')]"
+            },
+            "publicIpAddress": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', 'openclaw-ip'), '2024-05-01').ipAddress]"
+            },
+            "fqdn": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', 'openclaw-ip'), '2024-05-01').dnsSettings.fqdn]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "condition": "[equals(parameters('osType'), 'Ubuntu')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "vm-ubuntu",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "vmSize": {
+            "value": "[parameters('vmSize')]"
+          },
+          "adminUsername": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "subnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network'), '2025-04-01').outputs.subnetId.value]"
+          },
+          "publicIpId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network'), '2025-04-01').outputs.publicIpId.value]"
+          },
+          "scriptUrl": {
+            "value": "[variables('ubuntuScriptUrl')]"
+          },
+          "enablePublicHttps": {
+            "value": "[parameters('enablePublicHttps')]"
+          },
+          "gatewayPassword": {
+            "value": "[parameters('gatewayPassword')]"
+          },
+          "fqdn": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network'), '2025-04-01').outputs.fqdn.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "13023636337104259517"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region"
+              }
+            },
+            "vmSize": {
+              "type": "string",
+              "metadata": {
+                "description": "VM size SKU"
+              }
+            },
+            "adminUsername": {
+              "type": "string",
+              "metadata": {
+                "description": "Admin username"
+              }
+            },
+            "adminPassword": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Admin password"
+              }
+            },
+            "subnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Subnet resource ID"
+              }
+            },
+            "publicIpId": {
+              "type": "string",
+              "metadata": {
+                "description": "Public IP resource ID"
+              }
+            },
+            "scriptUrl": {
+              "type": "string",
+              "metadata": {
+                "description": "URL of the install script hosted on GitHub"
+              }
+            },
+            "enablePublicHttps": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Enable public HTTPS access"
+              }
+            },
+            "gatewayPassword": {
+              "type": "securestring",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Gateway password for authentication"
+              }
+            },
+            "fqdn": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Fully qualified domain name for HTTPS certificate"
+              }
+            }
+          },
+          "variables": {
+            "encodedGatewayPassword": "[base64(parameters('gatewayPassword'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkInterfaces",
+              "apiVersion": "2024-05-01",
+              "name": "openclaw-nic",
+              "location": "[parameters('location')]",
+              "properties": {
+                "ipConfigurations": [
+                  {
+                    "name": "ipconfig1",
+                    "properties": {
+                      "privateIPAllocationMethod": "Dynamic",
+                      "subnet": {
+                        "id": "[parameters('subnetId')]"
+                      },
+                      "publicIPAddress": {
+                        "id": "[parameters('publicIpId')]"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Compute/virtualMachines",
+              "apiVersion": "2024-07-01",
+              "name": "openclaw-vm",
+              "location": "[parameters('location')]",
+              "properties": {
+                "hardwareProfile": {
+                  "vmSize": "[parameters('vmSize')]"
+                },
+                "osProfile": {
+                  "computerName": "openclaw-vm",
+                  "adminUsername": "[parameters('adminUsername')]",
+                  "adminPassword": "[parameters('adminPassword')]",
+                  "linuxConfiguration": {
+                    "disablePasswordAuthentication": false
+                  }
+                },
+                "storageProfile": {
+                  "imageReference": {
+                    "publisher": "Canonical",
+                    "offer": "0001-com-ubuntu-server-noble",
+                    "sku": "24_04-lts-gen2",
+                    "version": "latest"
+                  },
+                  "osDisk": {
+                    "createOption": "FromImage",
+                    "managedDisk": {
+                      "storageAccountType": "StandardSSD_LRS"
+                    }
+                  }
+                },
+                "networkProfile": {
+                  "networkInterfaces": [
+                    {
+                      "id": "[resourceId('Microsoft.Network/networkInterfaces', 'openclaw-nic')]"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', 'openclaw-nic')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Compute/virtualMachines/extensions",
+              "apiVersion": "2024-07-01",
+              "name": "[format('{0}/{1}', 'openclaw-vm', 'install-openclaw')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "publisher": "Microsoft.Azure.Extensions",
+                "type": "CustomScript",
+                "typeHandlerVersion": "2.1",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                  "fileUris": [
+                    "[parameters('scriptUrl')]"
+                  ]
+                },
+                "protectedSettings": {
+                  "commandToExecute": "[if(parameters('enablePublicHttps'), format('bash install-openclaw-ubuntu.sh {0} true {1} {2}', parameters('adminUsername'), variables('encodedGatewayPassword'), parameters('fqdn')), format('bash install-openclaw-ubuntu.sh {0}', parameters('adminUsername')))]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Compute/virtualMachines', 'openclaw-vm')]"
+              ]
+            }
+          ],
+          "outputs": {
+            "vmName": {
+              "type": "string",
+              "value": "openclaw-vm"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'network')]"
+      ]
+    },
+    {
+      "condition": "[equals(parameters('osType'), 'Windows')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "vm-windows",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "vmSize": {
+            "value": "[parameters('vmSize')]"
+          },
+          "adminUsername": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "subnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network'), '2025-04-01').outputs.subnetId.value]"
+          },
+          "publicIpId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network'), '2025-04-01').outputs.publicIpId.value]"
+          },
+          "scriptUrl": {
+            "value": "[variables('windowsScriptUrl')]"
+          },
+          "enablePublicHttps": {
+            "value": "[parameters('enablePublicHttps')]"
+          },
+          "gatewayPassword": {
+            "value": "[parameters('gatewayPassword')]"
+          },
+          "fqdn": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network'), '2025-04-01').outputs.fqdn.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "17515917567086353636"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region"
+              }
+            },
+            "vmSize": {
+              "type": "string",
+              "metadata": {
+                "description": "VM size SKU"
+              }
+            },
+            "adminUsername": {
+              "type": "string",
+              "metadata": {
+                "description": "Admin username"
+              }
+            },
+            "adminPassword": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Admin password"
+              }
+            },
+            "subnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Subnet resource ID"
+              }
+            },
+            "publicIpId": {
+              "type": "string",
+              "metadata": {
+                "description": "Public IP resource ID"
+              }
+            },
+            "scriptUrl": {
+              "type": "string",
+              "metadata": {
+                "description": "URL of the install script hosted on GitHub"
+              }
+            },
+            "enablePublicHttps": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Enable public HTTPS access"
+              }
+            },
+            "gatewayPassword": {
+              "type": "securestring",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Gateway password for authentication"
+              }
+            },
+            "fqdn": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Fully qualified domain name for HTTPS certificate"
+              }
+            }
+          },
+          "variables": {
+            "encodedGatewayPassword": "[base64(parameters('gatewayPassword'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkInterfaces",
+              "apiVersion": "2024-05-01",
+              "name": "openclaw-nic",
+              "location": "[parameters('location')]",
+              "properties": {
+                "ipConfigurations": [
+                  {
+                    "name": "ipconfig1",
+                    "properties": {
+                      "privateIPAllocationMethod": "Dynamic",
+                      "subnet": {
+                        "id": "[parameters('subnetId')]"
+                      },
+                      "publicIPAddress": {
+                        "id": "[parameters('publicIpId')]"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Compute/virtualMachines",
+              "apiVersion": "2024-07-01",
+              "name": "openclaw-vm",
+              "location": "[parameters('location')]",
+              "properties": {
+                "hardwareProfile": {
+                  "vmSize": "[parameters('vmSize')]"
+                },
+                "osProfile": {
+                  "computerName": "openclaw-vm",
+                  "adminUsername": "[parameters('adminUsername')]",
+                  "adminPassword": "[parameters('adminPassword')]"
+                },
+                "storageProfile": {
+                  "imageReference": {
+                    "publisher": "MicrosoftWindowsDesktop",
+                    "offer": "windows-11",
+                    "sku": "win11-24h2-pro",
+                    "version": "latest"
+                  },
+                  "osDisk": {
+                    "createOption": "FromImage",
+                    "managedDisk": {
+                      "storageAccountType": "StandardSSD_LRS"
+                    }
+                  }
+                },
+                "networkProfile": {
+                  "networkInterfaces": [
+                    {
+                      "id": "[resourceId('Microsoft.Network/networkInterfaces', 'openclaw-nic')]"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', 'openclaw-nic')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Compute/virtualMachines/extensions",
+              "apiVersion": "2024-07-01",
+              "name": "[format('{0}/{1}', 'openclaw-vm', 'install-openclaw')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "publisher": "Microsoft.Compute",
+                "type": "CustomScriptExtension",
+                "typeHandlerVersion": "1.10",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                  "fileUris": [
+                    "[parameters('scriptUrl')]"
+                  ]
+                },
+                "protectedSettings": {
+                  "commandToExecute": "[if(parameters('enablePublicHttps'), format('powershell -ExecutionPolicy Bypass -File install-openclaw-windows.ps1 -EnablePublicHttps -GatewayPasswordB64 {0} -Fqdn {1}', variables('encodedGatewayPassword'), parameters('fqdn')), 'powershell -ExecutionPolicy Bypass -File install-openclaw-windows.ps1')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Compute/virtualMachines', 'openclaw-vm')]"
+              ]
+            }
+          ],
+          "outputs": {
+            "vmName": {
+              "type": "string",
+              "value": "openclaw-vm"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'network')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "publicIpAddress": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network'), '2025-04-01').outputs.publicIpAddress.value]"
+    },
+    "fqdn": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network'), '2025-04-01').outputs.fqdn.value]"
+    },
+    "vmName": {
+      "type": "string",
+      "value": "[if(equals(parameters('osType'), 'Ubuntu'), reference(resourceId('Microsoft.Resources/deployments', 'vm-ubuntu'), '2025-04-01').outputs.vmName.value, reference(resourceId('Microsoft.Resources/deployments', 'vm-windows'), '2025-04-01').outputs.vmName.value)]"
+    },
+    "osType": {
+      "type": "string",
+      "value": "[parameters('osType')]"
+    },
+    "adminUsername": {
+      "type": "string",
+      "value": "[parameters('adminUsername')]"
+    },
+    "enablePublicHttps": {
+      "type": "bool",
+      "value": "[parameters('enablePublicHttps')]"
+    }
+  }
+}
