@@ -115,7 +115,7 @@ resource installScript 'Microsoft.Compute/virtualMachines/extensions@2024-07-01'
     protectedSettings: {
       commandToExecute: enablePublicHttps
         ? 'powershell -ExecutionPolicy Bypass -File install-openclaw-windows.ps1 -EnablePublicHttps -GatewayPasswordB64 ${encodedGatewayPassword} -Fqdn ${fqdn}'
-        : 'powershell -ExecutionPolicy Bypass -File install-openclaw-windows.ps1'
+        : 'powershell -ExecutionPolicy Bypass -File install-openclaw-windows.ps1 -GatewayPasswordB64 ${encodedGatewayPassword}'
     }
   }
 }

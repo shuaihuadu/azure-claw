@@ -1,9 +1,6 @@
 # Deployment logs (contains sensitive .env files with passwords)
 logs/
 
-# Azure Bicep build output (generated from main.bicep, do not edit manually)
-infra/azuredeploy.json
-
 # Azure Developer CLI
 .azure/
 

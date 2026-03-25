@@ -72,10 +72,11 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 ### 方式二：脚本部署（推荐）
 
 ```powershell
-# 使用默认参数部署（Ubuntu 24.04 LTS, Standard_B2s, eastasia）
+# 交互式引导部署（推荐首次使用）
+# 自动查询订阅、可用区域、VM 规格，逐步引导选择
 .\deploy.ps1
 
-# 自定义参数部署
+# 自定义参数部署（跳过交互）
 .\deploy.ps1 -Location eastasia -VmSize Standard_B2ms -OsType Ubuntu -AdminUsername azureclaw -AdminPassword "YourP@ssw0rd!"
 
 # 部署 Windows 11 VM
@@ -84,6 +85,8 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 # 启用公网 HTTPS 访问（Caddy + Let's Encrypt 自动证书 + 密码认证）
 .\deploy.ps1 -EnablePublicHttps
 ```
+
+> **提示**: 不带任何参数运行 `.\deploy.ps1` 会进入交互式引导模式，自动查询你的 Azure 订阅中可用的区域和 VM 规格，避免选到不可用的资源。
 
 部署参数说明：
 
@@ -130,7 +133,12 @@ ssh <ADMIN_USERNAME>@<VM_PUBLIC_IP>
 
 ```bash
 # 浏览器访问 Web 控制台
+# 未启用 HTTPS 时:
 http://<VM_PUBLIC_IP>:18789
+# 启用 HTTPS 时:
+https://<FQDN>  # FQDN 参见 .env 文件
+
+# Gateway 登录密码参见 .env 文件中的 GATEWAY_PASSWORD
 
 # 检查服务状态
 sudo systemctl status openclaw
@@ -144,6 +152,9 @@ journalctl -u openclaw -f
 
 ### Windows 11 VM
 
+> **注意**: Windows 部署分两阶段完成。Phase 1 安装 WSL2 后 VM 会自动重启，Phase 2 在重启后自动安装 Node.js 和 OpenClaw。
+> 首次部署后请等待约 5-10 分钟再通过 RDP 连接，确保 Phase 2 完成。可检查 `C:\openclaw\phase2.log` 查看进度。
+
 **一、连接远程服务器**（用户名和密码参见 `.env` 文件）：
 
 ```powershell
@@ -155,6 +166,10 @@ mstsc /v:<VM_PUBLIC_IP>
 ```powershell
 # RDP 登录后打开浏览器访问
 http://localhost:18789
+# 启用 HTTPS 时，也可从外网访问:
+# https://<FQDN>  # FQDN 参见 .env 文件
+
+# Gateway 登录密码参见 .env 文件中的 GATEWAY_PASSWORD
 
 # 打开 PowerShell 运行诊断
 openclaw doctor
@@ -184,6 +199,7 @@ azure-claw/
 │   └── guide-slack.md               # 配置 Slack 通道
 ├── infra/                           # Bicep 基础设施代码
 │   ├── main.bicep                   # 主 Bicep 模板
+│   ├── azuredeploy.json             # ARM 模板（由 Bicep 生成，供一键部署）
 │   ├── main.parameters.json         # 参数文件
 │   └── modules/
 │       ├── network.bicep            # VNet / NSG / Public IP
@@ -196,6 +212,7 @@ azure-claw/
 ├── destroy.ps1                      # 资源清理脚本
 ├── azure.yaml                       # azd 项目配置
 ├── .gitignore
+├── LICENSE                          # MIT 许可证
 ├── logs/                            # 部署产物（git ignored）
 │   └── {yyyyMMddHHmmss}/
 │       ├── deploy.log               # 部署日志
@@ -214,11 +231,11 @@ azure-claw/
 
 ## 安全注意事项
 
-- 使用 `-EnablePublicHttps` 可启用 Caddy 反向代理 + Let's Encrypt 自动 HTTPS 证书
-- 启用 HTTPS 时，自动配置 OpenClaw Gateway 密码认证（`gateway.auth.mode: "password"`）
+- 所有部署模式均默认启用 Gateway 密码认证（`gateway.auth.mode: "password"`），密码自动生成并保存在 `.env` 文件中
+- 使用 `-EnablePublicHttps` 可进一步启用 Caddy 反向代理 + Let's Encrypt 自动 HTTPS 证书，加密传输层
 - HTTPS 模式下，Gateway 绑定 loopback，仅 Caddy 可访问，NSG 开放 443 端口
-- 非 HTTPS 模式下，NSG 开放 SSH (22) / RDP (3389) 和 Gateway (18789) 端口
-- **强烈建议** 部署后通过 Tailscale 或 VPN 访问 Gateway，或启用 `-EnablePublicHttps` 以获得安全的公网访问
+- 非 HTTPS 模式下，NSG 开放 SSH (22) / RDP (3389) 和 Gateway (18789) 端口，密码通过 HTTP 明文传输
+- **建议** 在生产环境启用 `-EnablePublicHttps`，或通过 Tailscale / VPN 访问 Gateway，避免密码明文传输
 - 敏感信息（密码、Gateway 密码等）仅保存在 `logs/<timestamp>/.env`，不会提交到 Git
 - 定期运行 `openclaw doctor` 检查安全配置
 - 参考 OpenClaw [安全指南](https://docs.openclaw.ai/gateway/security)
@@ -239,11 +256,28 @@ OpenClaw 官方推荐在 Windows 上使用 WSL2 运行。本项目的 Windows 11
 
 ### 如何更新 OpenClaw？
 
+**Ubuntu:**
+
 ```bash
-npm install -g openclaw@latest
+sudo npm install -g openclaw@latest
 openclaw doctor
-sudo systemctl restart openclaw  # Ubuntu
+sudo systemctl restart openclaw
 ```
+
+**Windows (WSL):**
+
+```powershell
+# 在 PowerShell 中执行
+wsl -d Ubuntu -- bash -c "sudo npm install -g openclaw@latest"
+wsl -d Ubuntu -- bash -c "sudo systemctl restart openclaw"
+```
+
+## 配置指南
+
+部署完成后，参考以下指南配置 AI 模型和消息通道：
+
+- [配置 Azure OpenAI / Microsoft Foundry 模型](docs/guide-azure-openai.md) — 使用 Azure 托管的 GPT-4o 等模型
+- [配置 Slack 消息通道](docs/guide-slack.md) — 在 Slack 中与 AI 助手对话
 
 ## 参考链接
 
@@ -256,4 +290,4 @@ sudo systemctl restart openclaw  # Ubuntu
 
 ## 许可证
 
-MIT
+[MIT](LICENSE)

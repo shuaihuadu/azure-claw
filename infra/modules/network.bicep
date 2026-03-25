@@ -74,10 +74,25 @@ var httpsRule = {
   }
 }
 
-// When HTTPS is enabled, expose 443 instead of 18789 (gateway binds loopback)
+// HTTP rule for Let's Encrypt HTTP-01 challenge (port 80)
+var httpChallengeRule = {
+  name: 'Allow-HTTP-Challenge'
+  properties: {
+    priority: 1300
+    direction: 'Inbound'
+    access: 'Allow'
+    protocol: 'Tcp'
+    sourcePortRange: '*'
+    destinationPortRange: '80'
+    sourceAddressPrefix: '*'
+    destinationAddressPrefix: '*'
+  }
+}
+
+// When HTTPS is enabled, expose 443 + 80 (for cert) instead of 18789
 var nsgRules = osType == 'Ubuntu'
-  ? (enablePublicHttps ? [sshRule, httpsRule] : [sshRule, gatewayRule])
-  : (enablePublicHttps ? [rdpRule, httpsRule] : [rdpRule, gatewayRule])
+  ? (enablePublicHttps ? [sshRule, httpsRule, httpChallengeRule] : [sshRule, gatewayRule])
+  : (enablePublicHttps ? [rdpRule, httpsRule, httpChallengeRule] : [rdpRule, gatewayRule])
 
 resource nsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
   name: 'openclaw-nsg'

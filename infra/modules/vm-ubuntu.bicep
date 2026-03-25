@@ -118,7 +118,7 @@ resource installScript 'Microsoft.Compute/virtualMachines/extensions@2024-07-01'
     protectedSettings: {
       commandToExecute: enablePublicHttps
         ? 'bash install-openclaw-ubuntu.sh ${adminUsername} true ${encodedGatewayPassword} ${fqdn}'
-        : 'bash install-openclaw-ubuntu.sh ${adminUsername}'
+        : 'bash install-openclaw-ubuntu.sh ${adminUsername} false ${encodedGatewayPassword}'
     }
   }
 }

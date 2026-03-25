@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
     Deploy OpenClaw to Azure VM (Ubuntu 24.04 LTS or Windows 11).
+    Run without parameters for interactive guided setup.
 
 .PARAMETER Location
     Azure region. Default: eastasia
@@ -19,14 +20,22 @@
 
 .PARAMETER EnablePublicHttps
     Enable public HTTPS access via Caddy + Let's Encrypt. Default: off.
+
+.EXAMPLE
+    .\deploy.ps1
+    # Interactive guided setup
+
+.EXAMPLE
+    .\deploy.ps1 -Location eastasia -OsType Ubuntu
+    # Non-interactive with explicit parameters
 #>
 
 param(
-    [string]$Location = 'eastasia',
-    [string]$VmSize = 'Standard_B2s',
-    [ValidateSet('Ubuntu', 'Windows')]
-    [string]$OsType = 'Ubuntu',
-    [string]$AdminUsername = 'azureclaw',
+    [string]$Location = '',
+    [string]$VmSize = '',
+    [ValidateSet('Ubuntu', 'Windows', '')]
+    [string]$OsType = '',
+    [string]$AdminUsername = '',
     [string]$AdminPassword = '',
     [switch]$EnablePublicHttps
 )
@@ -36,11 +45,27 @@ $ResourceGroup = 'rg-openclaw'
 $TemplateFile = Join-Path $PSScriptRoot 'infra' 'main.bicep'
 $StartTime = Get-Date
 
-# --- 1. Parameter handling ---
+# ============================================================
+# Logging infrastructure
+# ============================================================
+# Pre-create logs directory so we can capture the full transcript
+$timestamp = $StartTime.ToString('yyyyMMddHHmmss')
+$logDir = Join-Path $PSScriptRoot 'logs' $timestamp
+New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+$transcriptPath = Join-Path $logDir 'deploy.log'
+Start-Transcript -Path $transcriptPath -Append | Out-Null
 
-if ([string]::IsNullOrEmpty($AdminPassword)) {
-    # Generate a strong random password that meets Azure VM requirements:
-    # 12-72 chars, at least 1 uppercase, 1 lowercase, 1 digit, 1 special char
+function Write-Log {
+    param([string]$Message, [string]$Level = 'INFO')
+    $ts = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+    Write-Host "[$ts] [$Level] $Message"
+}
+
+# ============================================================
+# Helper: Generate a strong random password
+# ============================================================
+function New-StrongPassword {
+    param([int]$Length = 16)
     $upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
     $lower = 'abcdefghijklmnopqrstuvwxyz'
     $digits = '0123456789'
@@ -55,36 +80,270 @@ if ([string]::IsNullOrEmpty($AdminPassword)) {
     $pw += $digits[(Get-Random -Maximum $digits.Length)]
     $pw += $special[(Get-Random -Maximum $special.Length)]
     $pw += $special[(Get-Random -Maximum $special.Length)]
-    for ($i = 0; $i -lt 8; $i++) {
+    $remaining = $Length - $pw.Count
+    for ($i = 0; $i -lt $remaining; $i++) {
         $pw += $all[(Get-Random -Maximum $all.Length)]
     }
-    $AdminPassword = -join ($pw | Get-Random -Count $pw.Count)
-    Write-Host "[INFO] Admin password auto-generated."
+    return -join ($pw | Get-Random -Count $pw.Count)
 }
 
-# Generate gateway password if EnablePublicHttps is set
-$GatewayPassword = ''
-if ($EnablePublicHttps) {
-    $upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    $lower = 'abcdefghijklmnopqrstuvwxyz'
-    $digits = '0123456789'
-    $special = '!@#$%^&*()-_=+'
-    $all = $upper + $lower + $digits + $special
-    $gpw = @()
-    $gpw += $upper[(Get-Random -Maximum $upper.Length)]
-    $gpw += $lower[(Get-Random -Maximum $lower.Length)]
-    $gpw += $digits[(Get-Random -Maximum $digits.Length)]
-    $gpw += $special[(Get-Random -Maximum $special.Length)]
-    for ($i = 0; $i -lt 12; $i++) {
-        $gpw += $all[(Get-Random -Maximum $all.Length)]
+# ============================================================
+# Helper: Prompt user to pick from a numbered list
+# ============================================================
+function Read-Choice {
+    param(
+        [string]$Prompt,
+        [string[]]$Options,
+        [string[]]$Descriptions = @(),
+        [int]$Default = 1,
+        [switch]$AllowCustom
+    )
+    Write-Host ""
+    Write-Host $Prompt
+    for ($i = 0; $i -lt $Options.Count; $i++) {
+        $desc = if ($Descriptions.Count -gt $i -and $Descriptions[$i]) { "  $($Descriptions[$i])" } else { '' }
+        Write-Host "    $($i + 1). $($Options[$i])$desc"
     }
-    $GatewayPassword = -join ($gpw | Get-Random -Count $gpw.Count)
-    Write-Host "[INFO] Gateway password auto-generated."
+    if ($AllowCustom) {
+        Write-Host "    $($Options.Count + 1). Custom (enter manually)"
+    }
+    $maxChoice = if ($AllowCustom) { $Options.Count + 1 } else { $Options.Count }
+    while ($true) {
+        $input = Read-Host "  Choice [$Default]"
+        if ([string]::IsNullOrWhiteSpace($input)) { $input = "$Default" }
+        $num = 0
+        if ([int]::TryParse($input, [ref]$num) -and $num -ge 1 -and $num -le $maxChoice) {
+            if ($AllowCustom -and $num -eq $maxChoice) {
+                while ($true) {
+                    $custom = Read-Host "  Enter value"
+                    if (-not [string]::IsNullOrWhiteSpace($custom)) { return $custom.Trim() }
+                    Write-Host "  Value cannot be empty." -ForegroundColor Yellow
+                }
+            }
+            return $Options[$num - 1]
+        }
+        Write-Host "  Invalid choice. Enter 1-$maxChoice." -ForegroundColor Yellow
+    }
 }
 
+# ============================================================
+# Determine if running in interactive mode
+# ============================================================
+# Interactive mode when no meaningful parameters are provided
+$isInteractive = ($PSBoundParameters.Count -eq 0) -or
+($PSBoundParameters.Count -eq 1 -and $PSBoundParameters.ContainsKey('EnablePublicHttps') -and -not $EnablePublicHttps)
+
+# ============================================================
+# Step 0: Ensure Azure CLI login
+# ============================================================
 Write-Host ""
 Write-Host "=========================================="
 Write-Host "  OpenClaw Azure VM Deployment"
+Write-Host "=========================================="
+Write-Host ""
+
+Write-Log 'Checking Azure CLI login status...' 'STEP'
+az account show 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Log 'Not logged in. Running az login...' 'INFO'
+    az login
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Azure CLI login failed."
+    }
+}
+$accountInfo = az account show --output json | ConvertFrom-Json
+Write-Log "Logged in as: $($accountInfo.user.name) (Subscription: $($accountInfo.name))" 'INFO'
+
+# ============================================================
+# Interactive setup
+# ============================================================
+if ($isInteractive) {
+    Write-Host ""
+    Write-Log 'No parameters provided. Starting interactive setup...' 'INFO'
+    Write-Host "(Tip: pass parameters directly to skip interactive mode, e.g. .\deploy.ps1 -Location eastasia)"
+    Write-Host ""
+
+    # --- Select subscription ---
+    Write-Log 'Querying available subscriptions...' 'STEP'
+    $subscriptions = az account list --query "[?state=='Enabled']" --output json | ConvertFrom-Json
+    if ($subscriptions.Count -eq 0) {
+        Write-Error "No enabled Azure subscriptions found."
+    }
+    if ($subscriptions.Count -eq 1) {
+        $selectedSub = $subscriptions[0]
+        Write-Log "Only one subscription available: $($selectedSub.name)" 'INFO'
+    }
+    else {
+        $subNames = $subscriptions | ForEach-Object { $_.name }
+        $subDescs = $subscriptions | ForEach-Object { "($($_.id.Substring(0, 8))...)" }
+        $selectedSubName = Read-Choice -Prompt "[1/6] Select Azure subscription:" `
+            -Options $subNames -Descriptions $subDescs -Default 1
+        $selectedSub = $subscriptions | Where-Object { $_.name -eq $selectedSubName } | Select-Object -First 1
+    }
+    if ($selectedSub.id -ne $accountInfo.id) {
+        Write-Log "Switching to subscription: $($selectedSub.name)..." 'INFO'
+        az account set --subscription $selectedSub.id
+        $accountInfo = az account show --output json | ConvertFrom-Json
+    }
+    Write-Log "Using subscription: $($accountInfo.name) ($($accountInfo.id))" 'INFO'
+
+    # --- Select region ---
+    Write-Host ""
+    Write-Log 'Querying available regions for this subscription...' 'STEP'
+    $regions = az account list-locations --query "[?metadata.regionType=='Physical'].{name:name, displayName:displayName}" --output json | ConvertFrom-Json
+
+    # Preferred regions (commonly used, good latency for Asia/US/EU)
+    $preferredRegions = @('eastasia', 'southeastasia', 'eastus', 'eastus2', 'westus2', 'westeurope', 'japaneast', 'koreacentral')
+    $availablePreferred = @()
+    foreach ($pr in $preferredRegions) {
+        $match = $regions | Where-Object { $_.name -eq $pr }
+        if ($match) { $availablePreferred += $match }
+    }
+
+    if ($availablePreferred.Count -gt 0) {
+        $regionNames = $availablePreferred | ForEach-Object { $_.name }
+        $regionDescs = $availablePreferred | ForEach-Object { "($($_.displayName))" }
+        $Location = Read-Choice -Prompt "[2/6] Select Azure region:" `
+            -Options $regionNames -Descriptions $regionDescs -Default 1 -AllowCustom
+    }
+    else {
+        $allRegionNames = ($regions | Sort-Object name | ForEach-Object { $_.name })
+        Write-Host "[2/6] No preferred regions available. Enter a region name."
+        Write-Host "  Available: $($allRegionNames -join ', ')"
+        while ($true) {
+            $Location = (Read-Host "  Region").Trim()
+            if ($Location -and ($allRegionNames -contains $Location)) { break }
+            Write-Host "  Invalid region. Choose from the list above." -ForegroundColor Yellow
+        }
+    }
+    Write-Log "Selected region: $Location" 'INFO'
+
+    # --- Select OS type ---
+    $OsType = Read-Choice -Prompt "[3/6] Select operating system:" `
+        -Options @('Ubuntu', 'Windows') `
+        -Descriptions @('24.04 LTS (recommended, 4GB+ RAM)', '11 via WSL2 (requires 8GB+ RAM)') `
+        -Default 1
+    Write-Log "Selected OS: $OsType" 'INFO'
+
+    # --- Select VM size (query available sizes for region) ---
+    Write-Host ""
+    Write-Log "Querying available VM sizes in '$Location'..." 'STEP'
+
+    # Recommended sizes matching the OS choice
+    if ($OsType -eq 'Windows') {
+        $recommendedSizes = @('Standard_B2ms', 'Standard_B4ms', 'Standard_D2s_v5', 'Standard_D4s_v5')
+    }
+    else {
+        $recommendedSizes = @('Standard_B2s', 'Standard_B2ms', 'Standard_B4ms', 'Standard_D2s_v5')
+    }
+
+    # Query actually available sizes in the region
+    $availableSizes = az vm list-sizes --location $Location --output json | ConvertFrom-Json
+
+    $validRecommended = @()
+    foreach ($rs in $recommendedSizes) {
+        $match = $availableSizes | Where-Object { $_.name -eq $rs }
+        if ($match) {
+            $validRecommended += @{
+                Name     = $match.name
+                Cores    = $match.numberOfCores
+                MemoryGB = [math]::Round($match.memoryInMB / 1024, 0)
+            }
+        }
+    }
+
+    if ($validRecommended.Count -gt 0) {
+        $sizeNames = $validRecommended | ForEach-Object { $_.Name }
+        $sizeDescs = $validRecommended | ForEach-Object { "($($_.Cores) vCPU, $($_.MemoryGB) GB RAM)" }
+        $VmSize = Read-Choice -Prompt "[4/6] Select VM size:" `
+            -Options $sizeNames -Descriptions $sizeDescs -Default 1 -AllowCustom
+    }
+    else {
+        Write-Host "  No recommended sizes available in this region." -ForegroundColor Yellow
+        Write-Host "  Available sizes: $($availableSizes.Count) total"
+        while ($true) {
+            $VmSize = (Read-Host "  Enter VM size SKU (e.g., Standard_B2s)").Trim()
+            $match = $availableSizes | Where-Object { $_.name -eq $VmSize }
+            if ($match) { break }
+            Write-Host "  Size '$VmSize' is not available in '$Location'." -ForegroundColor Yellow
+        }
+    }
+
+    # Warn if Windows + small memory
+    $selectedSizeInfo = $availableSizes | Where-Object { $_.name -eq $VmSize }
+    if ($selectedSizeInfo -and $OsType -eq 'Windows' -and $selectedSizeInfo.memoryInMB -lt 8192) {
+        Write-Host ""
+        Write-Host "  WARNING: Windows 11 + WSL2 requires at least 8 GB RAM." -ForegroundColor Yellow
+        Write-Host "  Selected '$VmSize' has only $([math]::Round($selectedSizeInfo.memoryInMB / 1024, 0)) GB." -ForegroundColor Yellow
+        $confirm = Read-Host "  Continue anyway? (y/N)"
+        if ($confirm -ne 'y' -and $confirm -ne 'Y') {
+            Write-Host "  Please re-run and select a larger VM size." -ForegroundColor Yellow
+            exit 1
+        }
+    }
+    Write-Log "Selected VM size: $VmSize" 'INFO'
+
+    # --- Admin credentials ---
+    Write-Host ""
+    $inputUser = Read-Host "[5/6] Admin username [azureclaw]"
+    $AdminUsername = if ([string]::IsNullOrWhiteSpace($inputUser)) { 'azureclaw' } else { $inputUser.Trim() }
+
+    $secPw = Read-Host "  Password (leave empty to auto-generate)" -AsSecureString
+    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secPw)
+    $inputPw = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
+    [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    $AdminPassword = if ([string]::IsNullOrWhiteSpace($inputPw)) { '' } else { $inputPw }
+    Write-Log "Admin username: $AdminUsername" 'INFO'
+
+    # --- Enable HTTPS ---
+    Write-Host ""
+    Write-Host "[6/6] Enable public HTTPS? (Caddy + Let's Encrypt auto-certificate)"
+    Write-Host "  This adds password-protected HTTPS access via the Azure VM domain name."
+    $httpsInput = Read-Host "  Enable? (y/N) [N]"
+    $EnablePublicHttps = ($httpsInput -eq 'y' -or $httpsInput -eq 'Y')
+
+    # --- Summary and confirm ---
+    Write-Host ""
+    Write-Host "=========================================="
+    Write-Host "  Deployment Summary"
+    Write-Host "=========================================="
+    Write-Host "  Subscription   : $($accountInfo.name)"
+    Write-Host "  Location       : $Location"
+    Write-Host "  OS Type        : $OsType"
+    Write-Host "  VM Size        : $VmSize"
+    Write-Host "  Admin Username : $AdminUsername"
+    Write-Host "  Admin Password : $(if ([string]::IsNullOrEmpty($AdminPassword)) { '(auto-generate)' } else { '********' })"
+    Write-Host "  Public HTTPS   : $EnablePublicHttps"
+    Write-Host "  Resource Group : $ResourceGroup"
+    Write-Host "=========================================="
+    Write-Host ""
+    $proceed = Read-Host "Proceed with deployment? (Y/n) [Y]"
+    if ($proceed -eq 'n' -or $proceed -eq 'N') {
+        Write-Host "[INFO] Cancelled."
+        exit 0
+    }
+}
+else {
+    Write-Log 'Non-interactive mode: applying defaults for unset parameters.' 'INFO'
+    if ([string]::IsNullOrEmpty($Location)) { $Location = 'eastasia' }
+    if ([string]::IsNullOrEmpty($OsType)) { $OsType = 'Ubuntu' }
+    if ([string]::IsNullOrEmpty($VmSize)) { $VmSize = 'Standard_B2s' }
+    if ([string]::IsNullOrEmpty($AdminUsername)) { $AdminUsername = 'azureclaw' }
+}
+
+# --- 1. Password generation ---
+
+if ([string]::IsNullOrEmpty($AdminPassword)) {
+    $AdminPassword = New-StrongPassword
+    Write-Log 'Admin password auto-generated.' 'INFO'
+}
+
+$GatewayPassword = New-StrongPassword
+Write-Log 'Gateway password auto-generated.' 'INFO'
+
+Write-Host ""
+Write-Host "=========================================="
+Write-Host "  Deploying..."
 Write-Host "=========================================="
 Write-Host "  Location       : $Location"
 Write-Host "  OS Type        : $OsType"
@@ -95,29 +354,38 @@ Write-Host "  Resource Group : $ResourceGroup"
 Write-Host "=========================================="
 Write-Host ""
 
-# --- 2. Check Azure CLI login ---
+# --- Check if resource group already exists ---
 
-Write-Host "[STEP 1/5] Checking Azure CLI login status..."
-$account = az account show 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "[INFO] Not logged in. Running 'az login'..."
-    az login
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Azure CLI login failed."
+$rgExists = az group exists --name $ResourceGroup 2>&1
+if ($rgExists -eq 'true') {
+    $existingRg = az group show --name $ResourceGroup --output json | ConvertFrom-Json
+    Write-Log "Resource group '$ResourceGroup' already exists in '$($existingRg.location)'." 'WARN'
+    Write-Host "  Existing resources will be updated or may conflict." -ForegroundColor Yellow
+    if (-not $isInteractive) {
+        Write-Log 'Proceeding with existing resource group (non-interactive mode).' 'INFO'
+    }
+    else {
+        $rgConfirm = Read-Host "  Continue with existing resource group? (Y/n) [Y]"
+        if ($rgConfirm -eq 'n' -or $rgConfirm -eq 'N') {
+            Write-Host "[INFO] Cancelled. Run .\destroy.ps1 first to clean up, then re-deploy."
+            exit 0
+        }
     }
 }
-$accountInfo = az account show --output json | ConvertFrom-Json
-Write-Host "[INFO] Logged in as: $($accountInfo.user.name) (Subscription: $($accountInfo.name))"
 
-# --- 3. Create resource group ---
+# --- Create resource group ---
 
-Write-Host "[STEP 2/5] Creating resource group '$ResourceGroup' in '$Location'..."
+Write-Log "Creating resource group '$ResourceGroup' in '$Location'..." 'STEP'
 az group create --name $ResourceGroup --location $Location --output none
-Write-Host "[INFO] Resource group ready."
+Write-Log 'Resource group ready.' 'INFO'
 
-# --- 4. Deploy Bicep template ---
+# --- Deploy Bicep template ---
 
-Write-Host "[STEP 3/5] Deploying Bicep template (this may take several minutes)..."
+Write-Log 'Deploying Bicep template (this may take several minutes)...' 'STEP'
+
+# Pause transcript to prevent passwords from leaking into deploy.log
+Stop-Transcript | Out-Null
+
 $deploymentResult = az deployment group create `
     --resource-group $ResourceGroup `
     --template-file $TemplateFile `
@@ -131,57 +399,28 @@ $deploymentResult = az deployment group create `
     gatewayPassword=$GatewayPassword `
     --output json | ConvertFrom-Json
 
+# Resume transcript (safe — no more secrets in command output)
+Start-Transcript -Path $transcriptPath -Append | Out-Null
+
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Deployment failed. Check the Azure Portal for details."
 }
 
-# --- 5. Capture deployment outputs ---
+# --- Capture deployment outputs ---
 
 $publicIpAddress = $deploymentResult.properties.outputs.publicIpAddress.value
 $vmFqdn = $deploymentResult.properties.outputs.fqdn.value
 $vmName = $deploymentResult.properties.outputs.vmName.value
 $deployedOsType = $deploymentResult.properties.outputs.osType.value
 $deployedAdminUsername = $deploymentResult.properties.outputs.adminUsername.value
-$deployedEnableHttps = $deploymentResult.properties.outputs.enablePublicHttps.value
 
-Write-Host "[INFO] Deployment succeeded."
-Write-Host "[INFO] Public IP: $publicIpAddress"
-Write-Host "[INFO] FQDN: $vmFqdn"
+Write-Log 'Deployment succeeded.' 'INFO'
+Write-Log "Public IP: $publicIpAddress" 'INFO'
+Write-Log "FQDN: $vmFqdn" 'INFO'
 
-# --- 6. Create logs directory ---
+# --- Write .env ---
 
-Write-Host "[STEP 4/5] Writing deployment logs..."
-$timestamp = $StartTime.ToString('yyyyMMddHHmmss')
-$logDir = Join-Path $PSScriptRoot 'logs' $timestamp
-New-Item -ItemType Directory -Path $logDir -Force | Out-Null
-
-# --- 7. Write deploy.log ---
-
-$endTime = Get-Date
-$duration = $endTime - $StartTime
-
-$logContent = @"
-# OpenClaw Deployment Log
-# =======================
-# Deployment Time : $($StartTime.ToString('yyyy-MM-dd HH:mm:ss'))
-# Duration        : $($duration.ToString('hh\:mm\:ss'))
-# Location        : $Location
-# OS Type         : $OsType
-# VM Size         : $VmSize
-# Admin Username  : $AdminUsername
-# Admin Password  : ********
-# Public HTTPS    : $EnablePublicHttps
-# Gateway Password: ********
-# Resource Group  : $ResourceGroup
-# Public IP       : $publicIpAddress
-# FQDN            : $vmFqdn
-# VM Name         : $vmName
-# Subscription    : $($accountInfo.name)
-# Status          : Succeeded
-"@
-Set-Content -Path (Join-Path $logDir 'deploy.log') -Value $logContent -Encoding UTF8
-
-# --- 8. Write .env ---
+Write-Log 'Writing deployment artifacts...' 'STEP'
 
 $envContent = @"
 ADMIN_USERNAME=$deployedAdminUsername
@@ -198,9 +437,9 @@ DEPLOY_TIME=$($StartTime.ToString('yyyy-MM-ddTHH:mm:ss'))
 "@
 Set-Content -Path (Join-Path $logDir '.env') -Value $envContent -Encoding UTF8
 
-# --- 9. Generate guide.md ---
+# --- Generate guide.md ---
 
-Write-Host "[STEP 5/5] Generating operation guide..."
+Write-Log 'Generating operation guide...' 'STEP'
 
 $guideHeader = @"
 # OpenClaw 部署操作指南
@@ -259,9 +498,10 @@ ssh ${deployedAdminUsername}@${publicIpAddress}
 ## 二、连接 OpenClaw
 
 1. 浏览器访问 Web 控制台: http://${publicIpAddress}:18789
-2. 检查服务状态: ``sudo systemctl status openclaw``
-3. 运行交互式配置: ``openclaw onboard``
-4. 查看日志: ``journalctl -u openclaw -f``
+2. 登录密码参见 ``.env`` 文件中的 ``GATEWAY_PASSWORD``
+3. 检查服务状态: ``sudo systemctl status openclaw``
+4. 运行交互式配置: ``openclaw onboard``
+5. 查看日志: ``journalctl -u openclaw -f``
 
 ## 三、清理资源
 
@@ -310,8 +550,9 @@ mstsc /v:${publicIpAddress}
 ## 二、连接 OpenClaw
 
 1. RDP 登录后打开浏览器访问: http://localhost:18789
-2. 打开 PowerShell 运行: ``openclaw doctor``
-3. 运行交互式配置: ``openclaw onboard --install-daemon``
+2. 登录密码参见 ``.env`` 文件中的 ``GATEWAY_PASSWORD``
+3. 打开 PowerShell 运行: ``openclaw doctor``
+4. 运行交互式配置: ``openclaw onboard --install-daemon``
 
 ## 三、清理资源
 
@@ -324,7 +565,7 @@ mstsc /v:${publicIpAddress}
 
 Set-Content -Path (Join-Path $logDir 'guide.md') -Value ($guideHeader + $guideBody) -Encoding UTF8
 
-# --- 10. Console summary ---
+# --- Console summary ---
 
 Write-Host ""
 Write-Host "=========================================="
@@ -341,18 +582,31 @@ if ($EnablePublicHttps) {
 Write-Host "=========================================="
 Write-Host ""
 Write-Host "  Logs directory : $logDir"
-Write-Host "  - deploy.log   : Deployment log (sanitized)"
+Write-Host "  - deploy.log   : Full deployment transcript"
 Write-Host "  - .env         : Credentials & connection info"
 Write-Host "  - guide.md     : Operation guide"
 Write-Host ""
 
 if ($deployedOsType -eq 'Ubuntu') {
     Write-Host "  Connect: ssh ${deployedAdminUsername}@${publicIpAddress}"
-    Write-Host "  Web UI:  http://${publicIpAddress}:18789"
+    if ($EnablePublicHttps) {
+        Write-Host "  Web UI:  https://${vmFqdn}"
+    }
+    else {
+        Write-Host "  Web UI:  http://${publicIpAddress}:18789"
+    }
 }
 else {
     Write-Host "  Connect: mstsc /v:${publicIpAddress}"
-    Write-Host "  Web UI:  http://localhost:18789 (after RDP login)"
+    if ($EnablePublicHttps) {
+        Write-Host "  Web UI:  https://${vmFqdn}"
+    }
+    else {
+        Write-Host "  Web UI:  http://localhost:18789 (after RDP login)"
+    }
 }
 
 Write-Host ""
+
+# Stop transcript
+Stop-Transcript | Out-Null

@@ -30,6 +30,100 @@
 
 ## 二、创建 Slack App
 
+### 方式 A：使用 App Manifest 创建（推荐）
+
+使用 Manifest 可以一步完成 App 创建、权限配置、事件订阅和 Socket Mode 启用，无需手动逐项设置。
+
+1. 前往 [Slack API: Your Apps](https://api.slack.com/apps)
+2. 点击 **Create New App**
+3. 选择 **From an app manifest**
+4. 选择你的 Slack Workspace → 点击 **Next**
+5. 选择 **JSON** 格式，将以下 Manifest 粘贴到编辑框中：
+
+```json
+{
+    "display_information": {
+        "name": "OpenClaw",
+        "description": "Slack connector for OpenClaw"
+    },
+    "features": {
+        "app_home": {
+            "home_tab_enabled": false,
+            "messages_tab_enabled": true,
+            "messages_tab_read_only_enabled": false
+        },
+        "bot_user": {
+            "display_name": "OpenClaw",
+            "always_online": false
+        },
+        "slash_commands": [
+            {
+                "command": "/openclaw",
+                "description": "Send a message to OpenClaw",
+                "should_escape": false
+            }
+        ]
+    },
+    "oauth_config": {
+        "scopes": {
+            "bot": [
+                "chat:write",
+                "chat:write.public",
+                "channels:history",
+                "channels:read",
+                "groups:history",
+                "im:history",
+                "im:read",
+                "im:write",
+                "mpim:history",
+                "users:read",
+                "app_mentions:read",
+                "reactions:read",
+                "reactions:write",
+                "pins:read",
+                "pins:write",
+                "emoji:read",
+                "commands",
+                "files:read",
+                "files:write"
+            ]
+        },
+        "pkce_enabled": false
+    },
+    "settings": {
+        "event_subscriptions": {
+            "bot_events": [
+                "app_mention",
+                "message.channels",
+                "message.groups",
+                "message.im",
+                "message.mpim",
+                "reaction_added",
+                "reaction_removed",
+                "member_joined_channel",
+                "member_left_channel",
+                "channel_rename",
+                "pin_added",
+                "pin_removed"
+            ]
+        },
+        "interactivity": {
+            "is_enabled": true
+        },
+        "org_deploy_enabled": false,
+        "socket_mode_enabled": true,
+        "token_rotation_enabled": false
+    }
+}
+```
+
+6. 点击 **Next** → 预览配置摘要 → 点击 **Create**
+7. App 创建成功后自动跳转到管理页面
+
+> **使用 Manifest 创建后，第三步（配置 Bot 权限）和第四步（启用事件订阅）已自动完成**，可直接跳到[第三步的 3.2 节](#32-生成-app-level-token)生成 App-Level Token，然后继续[第五步](#五安装-app-到-workspace)。
+
+### 方式 B：手动创建（From Scratch）
+
 1. 前往 [Slack API: Your Apps](https://api.slack.com/apps)
 2. 点击 **Create New App**
 3. 选择 **From scratch**
@@ -38,35 +132,63 @@
    - **Workspace**: 选择你的 Slack Workspace
 5. 点击 **Create App**
 
-创建后会进入 App 管理页面。
+创建后会进入 App 管理页面，继续按第三步和第四步手动配置。
 
 ---
 
 ## 三、配置 Bot 权限
 
+> **提示**: 如果你在第二步中使用了 **App Manifest** 创建，权限和 Slash Command 已自动配置，可直接跳到 [3.2 生成 App-Level Token](#32-生成-app-level-token)。
+
 ### 3.1 添加 Bot Token Scopes
 
 1. 左侧菜单 → **OAuth & Permissions**
 2. 向下滚动到 **Scopes** → **Bot Token Scopes**
-3. 点击 **Add an OAuth Scope**，添加以下权限：
+3. 点击 **Add an OAuth Scope**，逐一添加以下权限：
 
-| Scope               | 说明                                          |
-| ------------------- | --------------------------------------------- |
-| `app_mentions:read` | 读取 @提及消息                                |
-| `chat:write`        | 发送消息                                      |
-| `channels:history`  | 读取公共频道历史消息                          |
-| `groups:history`    | 读取私有频道历史消息                          |
-| `im:history`        | 读取 DM 历史消息                              |
-| `im:read`           | 查看 DM 信息                                  |
-| `im:write`          | 发起 DM 对话                                  |
-| `mpim:history`      | 读取群组 DM 历史                              |
-| `users:read`        | 读取用户信息                                  |
-| `files:read`        | 读取用户上传的文件（可选，支持图片/文档输入） |
-| `files:write`       | 上传文件（可选，支持 AI 返回文件）            |
+| Scope               | 说明                            |
+| ------------------- | ------------------------------- |
+| `app_mentions:read` | 读取 @提及消息                  |
+| `chat:write`        | 发送消息                        |
+| `chat:write.public` | 在未加入的公共频道中发送消息    |
+| `channels:history`  | 读取公共频道历史消息            |
+| `channels:read`     | 读取公共频道基本信息            |
+| `groups:history`    | 读取私有频道历史消息            |
+| `im:history`        | 读取 DM 历史消息                |
+| `im:read`           | 查看 DM 信息                    |
+| `im:write`          | 发起 DM 对话                    |
+| `mpim:history`      | 读取群组 DM 历史                |
+| `users:read`        | 读取用户信息                    |
+| `reactions:read`    | 读取消息 Emoji 表情回应         |
+| `reactions:write`   | 添加/删除 Emoji 表情回应        |
+| `pins:read`         | 读取频道置顶消息                |
+| `pins:write`        | 置顶/取消置顶消息               |
+| `emoji:read`        | 读取自定义 Emoji 列表           |
+| `commands`          | 注册和处理 Slash Commands       |
+| `files:read`        | 读取用户上传的文件（图片/文档） |
+| `files:write`       | 上传文件（AI 返回文件）         |
 
-### 3.2 配置 App-Level Token（Socket Mode）
+### 3.1b 配置 Slash Command（可选）
 
-如果你的 VM 无法通过公网接收 Webhook（例如处于 VPN/内网后），可使用 **Socket Mode**（推荐更安全）：
+1. 左侧菜单 → **Slash Commands**
+2. 点击 **Create New Command**
+3. 填写：
+   - **Command**: `/openclaw`
+   - **Short Description**: `Send a message to OpenClaw`
+   - **Escape channels, users, and links**: 不勾选
+4. 点击 **Save**
+
+配置后，你可以在 Slack 任何位置输入 `/openclaw <你的问题>` 直接向 AI 提问。
+
+### 3.1c 启用 Interactivity
+
+1. 左侧菜单 → **Interactivity & Shortcuts**
+2. 打开 **Interactivity** 开关
+3. 点击 **Save Changes**
+
+### 3.2 生成 App-Level Token
+
+Socket Mode 需要一个 App-Level Token，用于建立 WebSocket 连接：
 
 1. 左侧菜单 → **Basic Information**
 2. 向下滚动到 **App-Level Tokens**
@@ -76,32 +198,41 @@
 6. 点击 **Generate**
 7. **保存生成的 Token**（以 `xapp-` 开头）
 
+> **重要**: 此 Token 只在生成时显示一次，请立即保存。如丢失需重新生成。
+
 ---
 
 ## 四、启用事件订阅
 
-### 方式 A：Socket Mode（推荐）
+> **提示**: 如果你在第二步中使用了 **App Manifest** 创建，Socket Mode 和事件订阅已自动配置，可直接跳到[第五步](#五安装-app-到-workspace)。
+
+### 4.1 启用 Socket Mode
 
 1. 左侧菜单 → **Socket Mode**
-2. 打开 **Enable Socket Mode** 开关
-3. 左侧菜单 → **Event Subscriptions**
-4. 打开 **Enable Events** 开关
-5. 在 **Subscribe to bot events** 中添加：
-   - `app_mention` — 当有人 @你的 Bot 时触发
-   - `message.im` — 当收到 DM 消息时触发
-   - `message.channels` — 当公共频道有新消息时触发（可选）
-   - `message.groups` — 当私有频道有新消息时触发（可选）
-6. 点击 **Save Changes**
+2. 打开 **Enable Socket Mode** 开关（如提示生成 Token，参见 [3.2 节](#32-生成-app-level-token)）
 
-### 方式 B：HTTP Webhook（需要公网可达）
+### 4.2 配置事件订阅
 
 1. 左侧菜单 → **Event Subscriptions**
 2. 打开 **Enable Events** 开关
-3. **Request URL**: 输入 `http://<VM_PUBLIC_IP>:18789/channels/slack/events`
-   - Slack 会发送验证请求，OpenClaw 需先启动并配置好才能通过验证
-   - 如未通过验证，先完成第七步配置后再回来填写
-4. 在 **Subscribe to bot events** 中添加同上事件
-5. 点击 **Save Changes**
+3. 在 **Subscribe to bot events** 中添加以下事件：
+
+| 事件                    | 说明                |
+| ----------------------- | ------------------- |
+| `app_mention`           | 有人 @Bot 时触发    |
+| `message.im`            | 收到 DM 消息        |
+| `message.channels`      | 公共频道有新消息    |
+| `message.groups`        | 私有频道有新消息    |
+| `message.mpim`          | 群组 DM 有新消息    |
+| `reaction_added`        | 有人添加 Emoji 回应 |
+| `reaction_removed`      | 有人移除 Emoji 回应 |
+| `member_joined_channel` | 成员加入频道        |
+| `member_left_channel`   | 成员离开频道        |
+| `channel_rename`        | 频道重命名          |
+| `pin_added`             | 消息被置顶          |
+| `pin_removed`           | 消息被取消置顶      |
+
+4. 点击 **Save Changes**
 
 ---
 
@@ -349,9 +480,13 @@ openclaw doctor
 - Socket Mode 通常比 Webhook 有略高延迟，但更安全
 - 确认 VM 规格足够（建议至少 `Standard_B2s`）
 
+### Q: 如何使用 Slash Command？
+
+在 Slack 任何对话窗口中输入 `/openclaw 你的问题`，即可直接向 AI 提问。Slash Command 的回复仅对发送者可见（ephemeral），适合在公共频道中私密提问。
+
 ### Q: 如何让 Bot 响应 Emoji Reactions？
 
-在 Event Subscriptions 中额外添加 `reaction_added` 事件，并在 Bot Token Scopes 中添加 `reactions:read` 权限。
+如果使用了 App Manifest 创建，`reaction_added` 和 `reaction_removed` 事件已自动订阅。如果手动创建，需在 Event Subscriptions 中添加 `reaction_added` 事件，并在 Bot Token Scopes 中添加 `reactions:read` 权限。
 
 ---
 
