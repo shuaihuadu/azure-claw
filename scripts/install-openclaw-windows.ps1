@@ -149,6 +149,9 @@ wsl -d Ubuntu -u $wslUser -- bash -c "mkdir -p ~/.openclaw && cat > ~/.openclaw/
         ""primary"": ""anthropic/claude-opus-4-6""
       }
     }
+  },
+  ""gateway"": {
+    ""mode"": ""local""
   }
 }
 HEREDOC"

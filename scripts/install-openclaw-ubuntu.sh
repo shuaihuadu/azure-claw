@@ -53,7 +53,7 @@ npm install -g openclaw@latest
 log ">>> Creating OpenClaw configuration..."
 mkdir -p "${ADMIN_HOME}/.openclaw"
 
-# Minimal config (gateway auth handled via CLI flags)
+# Minimal config with gateway mode set for headless operation
 cat > "${ADMIN_HOME}/.openclaw/openclaw.json" <<EOF
 {
   "agents": {
@@ -62,6 +62,9 @@ cat > "${ADMIN_HOME}/.openclaw/openclaw.json" <<EOF
         "primary": "anthropic/claude-opus-4-6"
       }
     }
+  },
+  "gateway": {
+    "mode": "local"
   }
 }
 EOF
