@@ -178,11 +178,11 @@ $ cat ~/.openclaw/logs/config-health.json
 
 ### 配置文件位置
 
-| 环境 | 路径 |
-|------|------|
-| Ubuntu VM | `/home/<admin>/.openclaw/openclaw.json` |
+| 环境             | 路径                                            |
+| ---------------- | ----------------------------------------------- |
+| Ubuntu VM        | `/home/<admin>/.openclaw/openclaw.json`         |
 | Windows VM (WSL) | WSL 内 `/home/openclaw/.openclaw/openclaw.json` |
-| 本地 macOS | `~/.openclaw/openclaw.json` |
+| 本地 macOS       | `~/.openclaw/openclaw.json`                     |
 
 ### 查看当前配置
 
@@ -341,12 +341,12 @@ $ az network nsg rule list --nsg-name openclaw-nsg --resource-group rg-openclaw 
 
 ### 常见网络问题
 
-| 症状 | 可能原因 | 排查方法 |
-|------|---------|---------|
-| 浏览器无法访问 18789 | NSG 未放行 / Gateway 未绑定 0.0.0.0 | 检查 NSG 规则 + `ss -tlnp` |
-| HTTPS 证书错误 | Caddy 未获取证书 / DNS 未解析 | `journalctl -u caddy` 查看证书获取日志 |
-| WSL 端口不通 | 端口代理失效（WSL IP 变了） | 运行 `refresh-portproxy.ps1` |
-| 连接超时 | VM 未启动 / NSG 全部拒绝 | Azure Portal 检查 VM 状态和 NSG |
+| 症状                 | 可能原因                            | 排查方法                               |
+| -------------------- | ----------------------------------- | -------------------------------------- |
+| 浏览器无法访问 18789 | NSG 未放行 / Gateway 未绑定 0.0.0.0 | 检查 NSG 规则 + `ss -tlnp`             |
+| HTTPS 证书错误       | Caddy 未获取证书 / DNS 未解析       | `journalctl -u caddy` 查看证书获取日志 |
+| WSL 端口不通         | 端口代理失效（WSL IP 变了）         | 运行 `refresh-portproxy.ps1`           |
+| 连接超时             | VM 未启动 / NSG 全部拒绝            | Azure Portal 检查 VM 状态和 NSG        |
 
 ---
 
@@ -436,12 +436,12 @@ $ top -b -n 1 | head -20
 
 关键数据目录：
 
-| 目录 | 内容 | 重要性 |
-|------|------|--------|
-| `~/.openclaw/openclaw.json` | 主配置文件 | ★★★ |
-| `~/.openclaw/credentials/` | 通道认证凭据 | ★★★ |
-| `~/.openclaw/agents/` | Agent 配置 + 会话历史 | ★★ |
-| `~/.openclaw/workspace/` | 工作目录 | ★ |
+| 目录                        | 内容                  | 重要性 |
+| --------------------------- | --------------------- | ------ |
+| `~/.openclaw/openclaw.json` | 主配置文件            | ★★★    |
+| `~/.openclaw/credentials/`  | 通道认证凭据          | ★★★    |
+| `~/.openclaw/agents/`       | Agent 配置 + 会话历史 | ★★     |
+| `~/.openclaw/workspace/`    | 工作目录              | ★      |
 
 ```bash
 # Ubuntu — 备份到本地
@@ -506,18 +506,18 @@ $ npm audit -g
 
 ## 11. 常见问题速查表
 
-| 问题 | 原因 | 解决方案 |
-|------|------|---------|
-| **Gateway 启动失败** | 端口被占用 / 配置文件语法错误 | `journalctl -u openclaw -n 50` 查看错误；`python3 -m json.tool ~/.openclaw/openclaw.json` 验证 JSON |
-| **`openclaw models list` 报错** | 配置中 api 类型不合法或缺少 models 数组 | 检查 provider 的 `api` 字段是否为合法值（如 `openai-responses`），确保有 `models` 数组 |
-| **Web UI 能打开但模型调用失败** | API Key 错误 / 端点不可达 / 模型 ID 不匹配 | `curl` 直接测试端点；确认 API Key 有效；确认模型 ID 与部署名一致 |
-| **浏览器显示 401 Unauthorized** | Gateway 密码认证已启用 | 输入正确的 Gateway 密码（见 `.env` 文件中的 `GATEWAY_PASSWORD`） |
-| **Slack/Teams 消息无响应** | 通道未启用 / Token 失效 / 网络不通 | 检查 `openclaw.json` 中通道配置；`openclaw doctor` 查看通道状态 |
-| **WSL 重启后服务不可达** | WSL IP 变化导致端口代理失效 | 运行 `C:\openclaw\refresh-portproxy.ps1` |
-| **`npm install -g openclaw` 报权限错误** | Ubuntu 上需要 sudo | 使用 `sudo npm install -g openclaw@latest` |
-| **HTTPS 证书过期/未获取** | 443 端口未放行 / DNS 未解析 | 检查 NSG 放行 443+80；`nslookup <FQDN>` 确认 DNS |
-| **VM SSH/RDP 连不上** | VM 已停止 / NSG 规则缺失 / 密码错误 | Azure Portal 检查 VM 状态；检查 NSG 入站规则 |
-| **聊天 UI 模型列表显示旧模型** | Agent 缓存未刷新 | 删除 `~/.openclaw/agents/main/agent/models.json` 后重启 Gateway |
+| 问题                                     | 原因                                       | 解决方案                                                                                            |
+| ---------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| **Gateway 启动失败**                     | 端口被占用 / 配置文件语法错误              | `journalctl -u openclaw -n 50` 查看错误；`python3 -m json.tool ~/.openclaw/openclaw.json` 验证 JSON |
+| **`openclaw models list` 报错**          | 配置中 api 类型不合法或缺少 models 数组    | 检查 provider 的 `api` 字段是否为合法值（如 `openai-responses`），确保有 `models` 数组              |
+| **Web UI 能打开但模型调用失败**          | API Key 错误 / 端点不可达 / 模型 ID 不匹配 | `curl` 直接测试端点；确认 API Key 有效；确认模型 ID 与部署名一致                                    |
+| **浏览器显示 401 Unauthorized**          | Gateway 密码认证已启用                     | 输入正确的 Gateway 密码（见 `.env` 文件中的 `GATEWAY_PASSWORD`）                                    |
+| **Slack/Teams 消息无响应**               | 通道未启用 / Token 失效 / 网络不通         | 检查 `openclaw.json` 中通道配置；`openclaw doctor` 查看通道状态                                     |
+| **WSL 重启后服务不可达**                 | WSL IP 变化导致端口代理失效                | 运行 `C:\openclaw\refresh-portproxy.ps1`                                                            |
+| **`npm install -g openclaw` 报权限错误** | Ubuntu 上需要 sudo                         | 使用 `sudo npm install -g openclaw@latest`                                                          |
+| **HTTPS 证书过期/未获取**                | 443 端口未放行 / DNS 未解析                | 检查 NSG 放行 443+80；`nslookup <FQDN>` 确认 DNS                                                    |
+| **VM SSH/RDP 连不上**                    | VM 已停止 / NSG 规则缺失 / 密码错误        | Azure Portal 检查 VM 状态；检查 NSG 入站规则                                                        |
+| **聊天 UI 模型列表显示旧模型**           | Agent 缓存未刷新                           | 删除 `~/.openclaw/agents/main/agent/models.json` 后重启 Gateway                                     |
 
 ---
 
