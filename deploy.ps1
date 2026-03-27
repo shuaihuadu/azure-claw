@@ -226,12 +226,23 @@ if ($isInteractive) {
     if ($availablePreferred.Count -gt 0) {
         $regionNames = $availablePreferred | ForEach-Object { $_.name }
         $regionDescs = $availablePreferred | ForEach-Object { "($($_.displayName))" }
-        # Use last region as default if it's in the list
+        # Use last region as default if it's in the list; if not, inject it
         $regionDefault = 1
         $lastLocation = Get-LastValue 'Location'
         if ($lastLocation) {
             $idx = [array]::IndexOf($regionNames, $lastLocation)
-            if ($idx -ge 0) { $regionDefault = $idx + 1 }
+            if ($idx -ge 0) {
+                $regionDefault = $idx + 1
+            } else {
+                # Last region not in preferred list — add it if it's a valid region
+                $lastMatch = $regions | Where-Object { $_.name -eq $lastLocation }
+                if ($lastMatch) {
+                    $availablePreferred = @($lastMatch) + @($availablePreferred)
+                    $regionNames = $availablePreferred | ForEach-Object { $_.name }
+                    $regionDescs = $availablePreferred | ForEach-Object { "($($_.displayName))" }
+                    $regionDefault = 1
+                }
+            }
         }
         $Location = Read-Choice -Prompt "[2/6] Select Azure region:" `
             -Options $regionNames -Descriptions $regionDescs -Default $regionDefault -AllowCustom
@@ -284,11 +295,22 @@ if ($isInteractive) {
     }
 
     if ($validRecommended.Count -gt 0) {
+        # If last VM size is available but not in recommended, inject it at the top
+        $lastVmSize = Get-LastValue 'VmSize'
+        if ($lastVmSize -and ($lastVmSize -notin ($validRecommended | ForEach-Object { $_.Name }))) {
+            $lastMatch = $availableSizes | Where-Object { $_.name -eq $lastVmSize }
+            if ($lastMatch) {
+                $validRecommended = @(@{
+                    Name     = $lastMatch.name
+                    Cores    = $lastMatch.numberOfCores
+                    MemoryGB = [math]::Round($lastMatch.memoryInMB / 1024, 0)
+                }) + @($validRecommended)
+            }
+        }
         $sizeNames = $validRecommended | ForEach-Object { $_.Name }
         $sizeDescs = $validRecommended | ForEach-Object { "($($_.Cores) vCPU, $($_.MemoryGB) GB RAM)" }
-        # Use last VM size as default if it's in the list
+        # Use last VM size as default
         $sizeDefault = 1
-        $lastVmSize = Get-LastValue 'VmSize'
         if ($lastVmSize) {
             $idx = [array]::IndexOf($sizeNames, $lastVmSize)
             if ($idx -ge 0) { $sizeDefault = $idx + 1 }
