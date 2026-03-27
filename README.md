@@ -196,6 +196,7 @@ azure-claw/
 │   └── copilot-instructions.md      # Copilot 开发指引
 ├── docs/                            # 操作手册
 │   ├── guide-microsoft-foundry.md    # 配置 Azure OpenAI / Microsoft Foundry 模型
+│   ├── guide-operations.md          # 运维手册（服务排查、重启、日志、升级等）
 │   ├── guide-slack.md               # 配置 Slack 通道
 │   └── guide-teams.md               # 配置 Microsoft Teams 通道
 ├── infra/                           # Bicep 基础设施代码
@@ -281,6 +282,7 @@ wsl -d Ubuntu -- bash -c "sudo systemctl restart openclaw"
 - [配置 Azure OpenAI / Microsoft Foundry 模型](docs/guide-microsoft-foundry.md) — 使用 Azure 托管的 GPT-4.1 等模型
 - [配置 Slack 消息通道](docs/guide-slack.md) — 在 Slack 中与 AI 助手对话
 - [配置 Microsoft Teams 消息通道](docs/guide-teams.md) — 在 Teams 中与 AI 助手对话（提供半自动化配置脚本 `setup-teams.ps1`）
+- [运维手册](docs/guide-operations.md) — 服务排查、重启、日志查看、升级、备份、安全巡检等日常运维操作
 
 ## 参考链接
 
