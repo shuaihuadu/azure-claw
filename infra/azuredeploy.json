@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "3138272485149846980"
+      "templateHash": "14628194261960081317"
     }
   },
   "parameters": {
@@ -95,7 +95,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "3303585286063609446"
+              "templateHash": "10412141972104163192"
             }
           },
           "parameters": {
@@ -176,7 +176,20 @@
                 "destinationAddressPrefix": "*"
               }
             },
-            "nsgRules": "[if(equals(parameters('osType'), 'Ubuntu'), if(parameters('enablePublicHttps'), createArray(variables('sshRule'), variables('httpsRule')), createArray(variables('sshRule'), variables('gatewayRule'))), if(parameters('enablePublicHttps'), createArray(variables('rdpRule'), variables('httpsRule')), createArray(variables('rdpRule'), variables('gatewayRule'))))]",
+            "httpChallengeRule": {
+              "name": "Allow-HTTP-Challenge",
+              "properties": {
+                "priority": 1300,
+                "direction": "Inbound",
+                "access": "Allow",
+                "protocol": "Tcp",
+                "sourcePortRange": "*",
+                "destinationPortRange": "80",
+                "sourceAddressPrefix": "*",
+                "destinationAddressPrefix": "*"
+              }
+            },
+            "nsgRules": "[if(equals(parameters('osType'), 'Ubuntu'), if(parameters('enablePublicHttps'), createArray(variables('sshRule'), variables('httpsRule'), variables('httpChallengeRule')), createArray(variables('sshRule'), variables('gatewayRule'))), if(parameters('enablePublicHttps'), createArray(variables('rdpRule'), variables('httpsRule'), variables('httpChallengeRule')), createArray(variables('rdpRule'), variables('gatewayRule'))))]",
             "dnsLabel": "[format('openclaw-{0}', uniqueString(resourceGroup().id))]"
           },
           "resources": [
@@ -302,7 +315,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "13023636337104259517"
+              "templateHash": "14220820567670021826"
             }
           },
           "parameters": {
@@ -416,8 +429,8 @@
                 "storageProfile": {
                   "imageReference": {
                     "publisher": "Canonical",
-                    "offer": "0001-com-ubuntu-server-noble",
-                    "sku": "24_04-lts-gen2",
+                    "offer": "0001-com-ubuntu-server-jammy",
+                    "sku": "22_04-lts-gen2",
                     "version": "latest"
                   },
                   "osDisk": {
@@ -455,7 +468,7 @@
                   ]
                 },
                 "protectedSettings": {
-                  "commandToExecute": "[if(parameters('enablePublicHttps'), format('bash install-openclaw-ubuntu.sh {0} true {1} {2}', parameters('adminUsername'), variables('encodedGatewayPassword'), parameters('fqdn')), format('bash install-openclaw-ubuntu.sh {0}', parameters('adminUsername')))]"
+                  "commandToExecute": "[if(parameters('enablePublicHttps'), format('bash install-openclaw-ubuntu.sh {0} true {1} {2}', parameters('adminUsername'), variables('encodedGatewayPassword'), parameters('fqdn')), format('bash install-openclaw-ubuntu.sh {0} false {1}', parameters('adminUsername'), variables('encodedGatewayPassword')))]"
                 }
               },
               "dependsOn": [
@@ -524,7 +537,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "17515917567086353636"
+              "templateHash": "11394844889743312083"
             }
           },
           "parameters": {
@@ -674,7 +687,7 @@
                   ]
                 },
                 "protectedSettings": {
-                  "commandToExecute": "[if(parameters('enablePublicHttps'), format('powershell -ExecutionPolicy Bypass -File install-openclaw-windows.ps1 -EnablePublicHttps -GatewayPasswordB64 {0} -Fqdn {1}', variables('encodedGatewayPassword'), parameters('fqdn')), 'powershell -ExecutionPolicy Bypass -File install-openclaw-windows.ps1')]"
+                  "commandToExecute": "[if(parameters('enablePublicHttps'), format('powershell -ExecutionPolicy Bypass -File install-openclaw-windows.ps1 -EnablePublicHttps -GatewayPasswordB64 {0} -Fqdn {1}', variables('encodedGatewayPassword'), parameters('fqdn')), format('powershell -ExecutionPolicy Bypass -File install-openclaw-windows.ps1 -GatewayPasswordB64 {0}', variables('encodedGatewayPassword')))]"
                 }
               },
               "dependsOn": [

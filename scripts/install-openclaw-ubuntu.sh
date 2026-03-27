@@ -24,7 +24,7 @@ if [ -n "${GATEWAY_PASSWORD_B64}" ]; then
   GATEWAY_PASSWORD=$(echo "${GATEWAY_PASSWORD_B64}" | base64 -d)
 fi
 
-log "=== OpenClaw installer for Ubuntu 24.04 LTS ==="
+log "=== OpenClaw installer for Ubuntu ==="
 log "Admin user: ${ADMIN_USER}"
 log "Public HTTPS: ${ENABLE_PUBLIC_HTTPS}"
 
