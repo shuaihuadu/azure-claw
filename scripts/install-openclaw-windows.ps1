@@ -139,16 +139,15 @@ Log "Installing OpenClaw..."
 wsl -d Ubuntu -u $wslUser -- bash -c "sudo npm install -g openclaw@latest"
 Log "OpenClaw installed"
 
-# Create config (idempotent: always overwrite with correct config, always enable password auth)
+# Create config (idempotent: always overwrite with correct config)
 Log "Creating OpenClaw configuration..."
 wsl -d Ubuntu -u $wslUser -- bash -c "mkdir -p ~/.openclaw && cat > ~/.openclaw/openclaw.json << 'HEREDOC'
 {
-  ""agent"": {
-    ""model"": ""anthropic/claude-opus-4-6""
-  },
-  ""gateway"": {
-    ""auth"": {
-      ""mode"": ""password""
+  ""agents"": {
+    ""defaults"": {
+      ""model"": {
+        ""primary"": ""anthropic/claude-opus-4-6""
+      }
     }
   }
 }
@@ -156,7 +155,9 @@ HEREDOC"
 
 # Create systemd service in WSL
 Log "Configuring systemd service..."
-$gatewayHost = if ($enableHttps) { "127.0.0.1" } else { "0.0.0.0" }
+$bindMode = if ($enableHttps) { "loopback" } else { "lan" }
+$execCmd = "/usr/local/bin/openclaw gateway run --port 18789 --bind $bindMode --auth password"
+if ($gwPassword) { $execCmd += " --password `$OPENCLAW_GATEWAY_PASSWORD" }
 $envLine = if ($gwPassword) { "Environment=OPENCLAW_GATEWAY_PASSWORD=$gwPassword" } else { "" }
 $unit = @"
 [Unit]
@@ -167,7 +168,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=$wslUser
-ExecStart=/usr/local/bin/openclaw gateway --port 18789 --host $gatewayHost
+ExecStart=$execCmd
 Restart=on-failure
 RestartSec=5
 Environment=NODE_ENV=production

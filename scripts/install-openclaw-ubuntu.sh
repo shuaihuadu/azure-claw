@@ -53,15 +53,14 @@ npm install -g openclaw@latest
 log ">>> Creating OpenClaw configuration..."
 mkdir -p "${ADMIN_HOME}/.openclaw"
 
-# Always enable password auth for Gateway security
+# Minimal config (gateway auth handled via CLI flags)
 cat > "${ADMIN_HOME}/.openclaw/openclaw.json" <<EOF
 {
-  "agent": {
-    "model": "anthropic/claude-opus-4-6"
-  },
-  "gateway": {
-    "auth": {
-      "mode": "password"
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "anthropic/claude-opus-4-6"
+      }
     }
   }
 }
@@ -72,15 +71,19 @@ chown -R "${ADMIN_USER}:${ADMIN_USER}" "${ADMIN_HOME}/.openclaw"
 log ">>> Configuring systemd service..."
 OPENCLAW_PATH=$(which openclaw)
 
-# Always inject gateway password for authentication
-EXTRA_ENV="Environment=OPENCLAW_GATEWAY_PASSWORD=${GATEWAY_PASSWORD}"
-
+# Determine bind mode and auth flags
 if [ "${ENABLE_PUBLIC_HTTPS}" = "true" ]; then
   # HTTPS mode: bind loopback, Caddy reverse proxies from 443
-  GATEWAY_HOST="127.0.0.1"
+  BIND_MODE="loopback"
 else
-  # Direct mode: bind all interfaces
-  GATEWAY_HOST="0.0.0.0"
+  # Direct mode: bind all interfaces for remote access
+  BIND_MODE="lan"
+fi
+
+# Build ExecStart command with auth flags
+EXEC_CMD="${OPENCLAW_PATH} gateway run --port 18789 --bind ${BIND_MODE} --auth password"
+if [ -n "${GATEWAY_PASSWORD}" ]; then
+  EXEC_CMD="${EXEC_CMD} --password \${OPENCLAW_GATEWAY_PASSWORD}"
 fi
 
 cat > /etc/systemd/system/openclaw.service <<EOF
@@ -92,11 +95,11 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=${ADMIN_USER}
-ExecStart=${OPENCLAW_PATH} gateway --port 18789 --host ${GATEWAY_HOST}
+ExecStart=${EXEC_CMD}
 Restart=on-failure
 RestartSec=5
 Environment=NODE_ENV=production
-${EXTRA_ENV}
+Environment=OPENCLAW_GATEWAY_PASSWORD=${GATEWAY_PASSWORD}
 
 [Install]
 WantedBy=multi-user.target
