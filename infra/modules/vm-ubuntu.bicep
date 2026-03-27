@@ -19,8 +19,8 @@ param subnetId string
 @description('Public IP resource ID')
 param publicIpId string
 
-@description('URL of the install script hosted on GitHub')
-param scriptUrl string
+@description('Install script content (embedded at build time)')
+param scriptContent string
 
 @description('Enable public HTTPS access')
 param enablePublicHttps bool = false
@@ -110,15 +110,11 @@ resource installScript 'Microsoft.Compute/virtualMachines/extensions@2024-07-01'
     type: 'CustomScript'
     typeHandlerVersion: '2.1'
     autoUpgradeMinorVersion: true
-    settings: {
-      fileUris: [
-        scriptUrl
-      ]
-    }
+    settings: {}
     protectedSettings: {
       commandToExecute: enablePublicHttps
-        ? 'bash install-openclaw-ubuntu.sh ${adminUsername} true ${encodedGatewayPassword} ${fqdn}'
-        : 'bash install-openclaw-ubuntu.sh ${adminUsername} false ${encodedGatewayPassword}'
+        ? 'printf \'%s\' \'${base64(scriptContent)}\' | base64 -d > /tmp/install-openclaw.sh && bash /tmp/install-openclaw.sh ${adminUsername} true ${encodedGatewayPassword} ${fqdn}'
+        : 'printf \'%s\' \'${base64(scriptContent)}\' | base64 -d > /tmp/install-openclaw.sh && bash /tmp/install-openclaw.sh ${adminUsername} false ${encodedGatewayPassword}'
     }
   }
 }

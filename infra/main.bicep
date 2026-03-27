@@ -29,11 +29,10 @@ param enablePublicHttps bool = false
 @secure()
 param gatewayPassword string = ''
 
-// --- Script URLs ---
-// Raw GitHub URLs for install scripts; adjust branch/tag as needed
-var repoBaseUrl = 'https://raw.githubusercontent.com/shuaihuadu/azure-claw/main/scripts'
-var ubuntuScriptUrl = '${repoBaseUrl}/install-openclaw-ubuntu.sh'
-var windowsScriptUrl = '${repoBaseUrl}/install-openclaw-windows.ps1'
+// --- Install Scripts ---
+// Embed scripts at build time so VMs don't need to download from GitHub
+var ubuntuScriptContent = loadTextContent('../scripts/install-openclaw-ubuntu.sh')
+var windowsScriptContent = loadTextContent('../scripts/install-openclaw-windows.ps1')
 
 // --- Network Module ---
 
@@ -57,7 +56,7 @@ module vmUbuntu 'modules/vm-ubuntu.bicep' = if (osType == 'Ubuntu') {
     adminPassword: adminPassword
     subnetId: network.outputs.subnetId
     publicIpId: network.outputs.publicIpId
-    scriptUrl: ubuntuScriptUrl
+    scriptContent: ubuntuScriptContent
     enablePublicHttps: enablePublicHttps
     gatewayPassword: gatewayPassword
     fqdn: network.outputs.fqdn
@@ -75,7 +74,7 @@ module vmWindows 'modules/vm-windows.bicep' = if (osType == 'Windows') {
     adminPassword: adminPassword
     subnetId: network.outputs.subnetId
     publicIpId: network.outputs.publicIpId
-    scriptUrl: windowsScriptUrl
+    scriptContent: windowsScriptContent
     enablePublicHttps: enablePublicHttps
     gatewayPassword: gatewayPassword
     fqdn: network.outputs.fqdn

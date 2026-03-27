@@ -19,8 +19,8 @@ param subnetId string
 @description('Public IP resource ID')
 param publicIpId string
 
-@description('URL of the install script hosted on GitHub')
-param scriptUrl string
+@description('Install script content (embedded at build time)')
+param scriptContent string
 
 @description('Enable public HTTPS access')
 param enablePublicHttps bool = false
@@ -107,15 +107,11 @@ resource installScript 'Microsoft.Compute/virtualMachines/extensions@2024-07-01'
     type: 'CustomScriptExtension'
     typeHandlerVersion: '1.10'
     autoUpgradeMinorVersion: true
-    settings: {
-      fileUris: [
-        scriptUrl
-      ]
-    }
+    settings: {}
     protectedSettings: {
       commandToExecute: enablePublicHttps
-        ? 'powershell -ExecutionPolicy Bypass -File install-openclaw-windows.ps1 -EnablePublicHttps -GatewayPasswordB64 ${encodedGatewayPassword} -Fqdn ${fqdn}'
-        : 'powershell -ExecutionPolicy Bypass -File install-openclaw-windows.ps1 -GatewayPasswordB64 ${encodedGatewayPassword}'
+        ? 'powershell -ExecutionPolicy Bypass -Command "\$b=[Convert]::FromBase64String(\'${base64(scriptContent)}\'); [IO.File]::WriteAllBytes(\'C:\\install.ps1\', \$b); & \'C:\\install.ps1\' -EnablePublicHttps -GatewayPasswordB64 \'${encodedGatewayPassword}\' -Fqdn \'${fqdn}\'"'
+        : 'powershell -ExecutionPolicy Bypass -Command "\$b=[Convert]::FromBase64String(\'${base64(scriptContent)}\'); [IO.File]::WriteAllBytes(\'C:\\install.ps1\', \$b); & \'C:\\install.ps1\' -GatewayPasswordB64 \'${encodedGatewayPassword}\'"'
     }
   }
 }
