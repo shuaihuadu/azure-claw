@@ -195,8 +195,9 @@ azure-claw/
 ├── .github/
 │   └── copilot-instructions.md      # Copilot 开发指引
 ├── docs/                            # 操作手册
-│   ├── guide-azure-openai.md        # 配置 Azure OpenAI 模型
-│   └── guide-slack.md               # 配置 Slack 通道
+│   ├── guide-microsoft-foundry.md    # 配置 Azure OpenAI / Microsoft Foundry 模型
+│   ├── guide-slack.md               # 配置 Slack 通道
+│   └── guide-teams.md               # 配置 Microsoft Teams 通道
 ├── infra/                           # Bicep 基础设施代码
 │   ├── main.bicep                   # 主 Bicep 模板
 │   ├── azuredeploy.json             # ARM 模板（由 Bicep 生成，供一键部署）
@@ -210,6 +211,7 @@ azure-claw/
 │   └── install-openclaw-windows.ps1 # Windows 安装脚本
 ├── deploy.ps1                       # 部署入口脚本
 ├── destroy.ps1                      # 资源清理脚本
+├── setup-teams.ps1                  # Teams 通道半自动配置脚本
 ├── azure.yaml                       # azd 项目配置
 ├── .gitignore
 ├── LICENSE                          # MIT 许可证
@@ -276,8 +278,9 @@ wsl -d Ubuntu -- bash -c "sudo systemctl restart openclaw"
 
 部署完成后，参考以下指南配置 AI 模型和消息通道：
 
-- [配置 Azure OpenAI / Microsoft Foundry 模型](docs/guide-azure-openai.md) — 使用 Azure 托管的 GPT-4o 等模型
+- [配置 Azure OpenAI / Microsoft Foundry 模型](docs/guide-microsoft-foundry.md) — 使用 Azure 托管的 GPT-4.1 等模型
 - [配置 Slack 消息通道](docs/guide-slack.md) — 在 Slack 中与 AI 助手对话
+- [配置 Microsoft Teams 消息通道](docs/guide-teams.md) — 在 Teams 中与 AI 助手对话（提供半自动化配置脚本 `setup-teams.ps1`）
 
 ## 参考链接
 

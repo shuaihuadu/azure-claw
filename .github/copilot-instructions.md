@@ -20,7 +20,7 @@ azure-claw/
 ├── .github/
 │   └── copilot-instructions.md      # 本文件（Copilot 开发指引）
 ├── docs/                            # 操作手册
-│   ├── guide-azure-openai.md        # 配置 Azure OpenAI 模型
+│   ├── guide-microsoft-foundry.md    # 配置 Azure OpenAI / Microsoft Foundry 模型
 │   └── guide-slack.md               # 配置 Slack 通道
 ├── infra/                           # Bicep 基础设施代码
 │   ├── main.bicep                   # 入口模板，根据 osType 参数分发
