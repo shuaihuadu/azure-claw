@@ -101,6 +101,19 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-07-01' = {
 
 // --- CustomScript Extension ---
 
+// Construct a self-contained wrapper: set positional args via 'set --', then include the install script.
+// Using replace() chain to avoid shell quoting/base64-in-commandToExecute issues.
+// The install script reads $1..$4 as positional args, so we prepend 'set --' to provide them.
+var wrapperTemplate = '''#!/bin/bash
+set -- "__PH_ADMIN__" "__PH_HTTPS__" "__PH_GWPWD__" "__PH_FQDN__"
+__PH_SCRIPT__'''
+
+var w1 = replace(wrapperTemplate, '__PH_ADMIN__', adminUsername)
+var w2 = replace(w1, '__PH_HTTPS__', enablePublicHttps ? 'true' : 'false')
+var w3 = replace(w2, '__PH_GWPWD__', encodedGatewayPassword)
+var w4 = replace(w3, '__PH_FQDN__', fqdn)
+var fullScript = replace(w4, '__PH_SCRIPT__', scriptContent)
+
 resource installScript 'Microsoft.Compute/virtualMachines/extensions@2024-07-01' = {
   parent: vm
   name: 'install-openclaw'
@@ -112,9 +125,7 @@ resource installScript 'Microsoft.Compute/virtualMachines/extensions@2024-07-01'
     autoUpgradeMinorVersion: true
     settings: {}
     protectedSettings: {
-      commandToExecute: enablePublicHttps
-        ? 'printf \'%s\' \'${base64(scriptContent)}\' | base64 -d > /tmp/install-openclaw.sh && bash /tmp/install-openclaw.sh ${adminUsername} true ${encodedGatewayPassword} ${fqdn}'
-        : 'printf \'%s\' \'${base64(scriptContent)}\' | base64 -d > /tmp/install-openclaw.sh && bash /tmp/install-openclaw.sh ${adminUsername} false ${encodedGatewayPassword}'
+      script: base64(fullScript)
     }
   }
 }

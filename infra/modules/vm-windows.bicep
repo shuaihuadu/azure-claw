@@ -98,6 +98,22 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-07-01' = {
 
 // --- CustomScriptExtension ---
 
+// Construct a self-contained wrapper: prepend param values, then include the install script.
+// Windows CustomScriptExtension doesn't support 'script' field, so we use commandToExecute
+// to decode a base64 wrapper and execute it.
+var winWrapperTemplate = '''# Auto-generated wrapper — sets parameters before the install script
+$EnablePublicHttps = [switch]("__PH_HTTPS__" -eq "true")
+$GatewayPasswordB64 = "__PH_GWPWD__"
+$Fqdn = "__PH_FQDN__"
+__PH_SCRIPT__'''
+
+var ww1 = replace(winWrapperTemplate, '__PH_HTTPS__', enablePublicHttps ? 'true' : 'false')
+var ww2 = replace(ww1, '__PH_GWPWD__', encodedGatewayPassword)
+var ww3 = replace(ww2, '__PH_FQDN__', fqdn)
+// Remove the original param() block from the script since we set variables directly
+var scriptWithoutParams = replace(scriptContent, 'param(\r\n    [switch]$EnablePublicHttps,\r\n    [string]$GatewayPasswordB64 = \'\',\r\n    [string]$Fqdn = \'\'\r\n)', '# (params set by wrapper)')
+var winFullScript = replace(ww3, '__PH_SCRIPT__', scriptWithoutParams)
+
 resource installScript 'Microsoft.Compute/virtualMachines/extensions@2024-07-01' = {
   parent: vm
   name: 'install-openclaw'
@@ -109,9 +125,7 @@ resource installScript 'Microsoft.Compute/virtualMachines/extensions@2024-07-01'
     autoUpgradeMinorVersion: true
     settings: {}
     protectedSettings: {
-      commandToExecute: enablePublicHttps
-        ? 'powershell -ExecutionPolicy Bypass -Command "\$b=[Convert]::FromBase64String(\'${base64(scriptContent)}\'); [IO.File]::WriteAllBytes(\'C:\\install.ps1\', \$b); & \'C:\\install.ps1\' -EnablePublicHttps -GatewayPasswordB64 \'${encodedGatewayPassword}\' -Fqdn \'${fqdn}\'"'
-        : 'powershell -ExecutionPolicy Bypass -Command "\$b=[Convert]::FromBase64String(\'${base64(scriptContent)}\'); [IO.File]::WriteAllBytes(\'C:\\install.ps1\', \$b); & \'C:\\install.ps1\' -GatewayPasswordB64 \'${encodedGatewayPassword}\'"'
+      commandToExecute: 'powershell -ExecutionPolicy Bypass -Command "[IO.File]::WriteAllBytes(\'C:\\\\openclaw-install.ps1\',[Convert]::FromBase64String(\'${base64(winFullScript)}\')); & \'C:\\\\openclaw-install.ps1\'"'
     }
   }
 }

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "12764497235417617671"
+      "templateHash": "3520626692822049252"
     }
   },
   "parameters": {
@@ -314,7 +314,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "2967830261817180544"
+              "templateHash": "1927850166140874732"
             }
           },
           "parameters": {
@@ -383,7 +383,13 @@
             }
           },
           "variables": {
-            "encodedGatewayPassword": "[base64(parameters('gatewayPassword'))]"
+            "encodedGatewayPassword": "[base64(parameters('gatewayPassword'))]",
+            "wrapperTemplate": "#!/bin/bash\r\nset -- \"__PH_ADMIN__\" \"__PH_HTTPS__\" \"__PH_GWPWD__\" \"__PH_FQDN__\"\r\n__PH_SCRIPT__",
+            "w1": "[replace(variables('wrapperTemplate'), '__PH_ADMIN__', parameters('adminUsername'))]",
+            "w2": "[replace(variables('w1'), '__PH_HTTPS__', if(parameters('enablePublicHttps'), 'true', 'false'))]",
+            "w3": "[replace(variables('w2'), '__PH_GWPWD__', variables('encodedGatewayPassword'))]",
+            "w4": "[replace(variables('w3'), '__PH_FQDN__', parameters('fqdn'))]",
+            "fullScript": "[replace(variables('w4'), '__PH_SCRIPT__', parameters('scriptContent'))]"
           },
           "resources": [
             {
@@ -463,7 +469,7 @@
                 "autoUpgradeMinorVersion": true,
                 "settings": {},
                 "protectedSettings": {
-                  "commandToExecute": "[if(parameters('enablePublicHttps'), format('printf ''%s'' ''{0}'' | base64 -d > /tmp/install-openclaw.sh && bash /tmp/install-openclaw.sh {1} true {2} {3}', base64(parameters('scriptContent')), parameters('adminUsername'), variables('encodedGatewayPassword'), parameters('fqdn')), format('printf ''%s'' ''{0}'' | base64 -d > /tmp/install-openclaw.sh && bash /tmp/install-openclaw.sh {1} false {2}', base64(parameters('scriptContent')), parameters('adminUsername'), variables('encodedGatewayPassword')))]"
+                  "script": "[base64(variables('fullScript'))]"
                 }
               },
               "dependsOn": [
@@ -532,7 +538,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "589210573551020874"
+              "templateHash": "5164834105957517450"
             }
           },
           "parameters": {
@@ -601,7 +607,13 @@
             }
           },
           "variables": {
-            "encodedGatewayPassword": "[base64(parameters('gatewayPassword'))]"
+            "encodedGatewayPassword": "[base64(parameters('gatewayPassword'))]",
+            "winWrapperTemplate": "# Auto-generated wrapper — sets parameters before the install script\r\n$EnablePublicHttps = [switch](\"__PH_HTTPS__\" -eq \"true\")\r\n$GatewayPasswordB64 = \"__PH_GWPWD__\"\r\n$Fqdn = \"__PH_FQDN__\"\r\n__PH_SCRIPT__",
+            "ww1": "[replace(variables('winWrapperTemplate'), '__PH_HTTPS__', if(parameters('enablePublicHttps'), 'true', 'false'))]",
+            "ww2": "[replace(variables('ww1'), '__PH_GWPWD__', variables('encodedGatewayPassword'))]",
+            "ww3": "[replace(variables('ww2'), '__PH_FQDN__', parameters('fqdn'))]",
+            "scriptWithoutParams": "[replace(parameters('scriptContent'), 'param(\r\n    [switch]$EnablePublicHttps,\r\n    [string]$GatewayPasswordB64 = '''',\r\n    [string]$Fqdn = ''''\r\n)', '# (params set by wrapper)')]",
+            "winFullScript": "[replace(variables('ww3'), '__PH_SCRIPT__', variables('scriptWithoutParams'))]"
           },
           "resources": [
             {
@@ -678,7 +690,7 @@
                 "autoUpgradeMinorVersion": true,
                 "settings": {},
                 "protectedSettings": {
-                  "commandToExecute": "[if(parameters('enablePublicHttps'), format('powershell -ExecutionPolicy Bypass -Command \"$b=[Convert]::FromBase64String(''{0}''); [IO.File]::WriteAllBytes(''C:\\install.ps1'', $b); & ''C:\\install.ps1'' -EnablePublicHttps -GatewayPasswordB64 ''{1}'' -Fqdn ''{2}''\"', base64(parameters('scriptContent')), variables('encodedGatewayPassword'), parameters('fqdn')), format('powershell -ExecutionPolicy Bypass -Command \"$b=[Convert]::FromBase64String(''{0}''); [IO.File]::WriteAllBytes(''C:\\install.ps1'', $b); & ''C:\\install.ps1'' -GatewayPasswordB64 ''{1}''\"', base64(parameters('scriptContent')), variables('encodedGatewayPassword')))]"
+                  "commandToExecute": "[format('powershell -ExecutionPolicy Bypass -Command \"[IO.File]::WriteAllBytes(''C:\\\\openclaw-install.ps1'',[Convert]::FromBase64String(''{0}'')); & ''C:\\\\openclaw-install.ps1''\"', base64(variables('winFullScript')))]"
                 }
               },
               "dependsOn": [
