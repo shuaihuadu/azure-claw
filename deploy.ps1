@@ -44,6 +44,7 @@ $ErrorActionPreference = 'Stop'
 $ResourceGroup = 'rg-openclaw'
 $TemplateFile = Join-Path $PSScriptRoot 'infra' 'main.bicep'
 $StartTime = Get-Date
+$LastDeployFile = Join-Path $PSScriptRoot 'logs' '.last-deploy.json'
 
 # ============================================================
 # Logging infrastructure
@@ -127,6 +128,28 @@ function Read-Choice {
 }
 
 # ============================================================
+# Load last deployment preferences (if any)
+# ============================================================
+$lastDeploy = $null
+if (Test-Path $LastDeployFile) {
+    try {
+        $lastDeploy = Get-Content -Path $LastDeployFile -Raw -Encoding utf8 | ConvertFrom-Json
+        Write-Log "Loaded previous deployment preferences from $LastDeployFile" 'INFO'
+    } catch {
+        Write-Log 'Failed to load previous preferences, using defaults.' 'WARN'
+    }
+}
+
+function Get-LastValue {
+    param([string]$Key, [string]$Fallback = '')
+    if ($lastDeploy -and $lastDeploy.PSObject.Properties[$Key]) {
+        $v = $lastDeploy.$Key
+        if (-not [string]::IsNullOrEmpty($v)) { return $v }
+    }
+    return $Fallback
+}
+
+# ============================================================
 # Determine if running in interactive mode
 # ============================================================
 # Interactive mode when no meaningful parameters are provided
@@ -203,8 +226,15 @@ if ($isInteractive) {
     if ($availablePreferred.Count -gt 0) {
         $regionNames = $availablePreferred | ForEach-Object { $_.name }
         $regionDescs = $availablePreferred | ForEach-Object { "($($_.displayName))" }
+        # Use last region as default if it's in the list
+        $regionDefault = 1
+        $lastLocation = Get-LastValue 'Location'
+        if ($lastLocation) {
+            $idx = [array]::IndexOf($regionNames, $lastLocation)
+            if ($idx -ge 0) { $regionDefault = $idx + 1 }
+        }
         $Location = Read-Choice -Prompt "[2/6] Select Azure region:" `
-            -Options $regionNames -Descriptions $regionDescs -Default 1 -AllowCustom
+            -Options $regionNames -Descriptions $regionDescs -Default $regionDefault -AllowCustom
     }
     else {
         $allRegionNames = ($regions | Sort-Object name | ForEach-Object { $_.name })
@@ -219,10 +249,11 @@ if ($isInteractive) {
     Write-Log "Selected region: $Location" 'INFO'
 
     # --- Select OS type ---
+    $osDefault = if ((Get-LastValue 'OsType') -eq 'Windows') { 2 } else { 1 }
     $OsType = Read-Choice -Prompt "[3/6] Select operating system:" `
         -Options @('Ubuntu', 'Windows') `
-        -Descriptions @('24.04 LTS (recommended, 4GB+ RAM)', '11 via WSL2 (requires 8GB+ RAM)') `
-        -Default 1
+        -Descriptions @('22.04 LTS (recommended, 4GB+ RAM)', '11 via WSL2 (requires 8GB+ RAM)') `
+        -Default $osDefault
     Write-Log "Selected OS: $OsType" 'INFO'
 
     # --- Select VM size (query available sizes for region) ---
@@ -255,8 +286,15 @@ if ($isInteractive) {
     if ($validRecommended.Count -gt 0) {
         $sizeNames = $validRecommended | ForEach-Object { $_.Name }
         $sizeDescs = $validRecommended | ForEach-Object { "($($_.Cores) vCPU, $($_.MemoryGB) GB RAM)" }
+        # Use last VM size as default if it's in the list
+        $sizeDefault = 1
+        $lastVmSize = Get-LastValue 'VmSize'
+        if ($lastVmSize) {
+            $idx = [array]::IndexOf($sizeNames, $lastVmSize)
+            if ($idx -ge 0) { $sizeDefault = $idx + 1 }
+        }
         $VmSize = Read-Choice -Prompt "[4/6] Select VM size:" `
-            -Options $sizeNames -Descriptions $sizeDescs -Default 1 -AllowCustom
+            -Options $sizeNames -Descriptions $sizeDescs -Default $sizeDefault -AllowCustom
     }
     else {
         Write-Host "  No recommended sizes available in this region." -ForegroundColor Yellow
@@ -285,8 +323,9 @@ if ($isInteractive) {
 
     # --- Admin credentials ---
     Write-Host ""
-    $inputUser = Read-Host "[5/6] Admin username [azureclaw]"
-    $AdminUsername = if ([string]::IsNullOrWhiteSpace($inputUser)) { 'azureclaw' } else { $inputUser.Trim() }
+    $lastUser = Get-LastValue 'AdminUsername' 'azureclaw'
+    $inputUser = Read-Host "[5/6] Admin username [$lastUser]"
+    $AdminUsername = if ([string]::IsNullOrWhiteSpace($inputUser)) { $lastUser } else { $inputUser.Trim() }
 
     $secPw = Read-Host "  Password (leave empty to auto-generate)" -AsSecureString
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secPw)
@@ -299,8 +338,14 @@ if ($isInteractive) {
     Write-Host ""
     Write-Host "[6/6] Enable public HTTPS? (Caddy + Let's Encrypt auto-certificate)"
     Write-Host "  This adds password-protected HTTPS access via the Azure VM domain name."
-    $httpsInput = Read-Host "  Enable? (y/N) [N]"
-    $EnablePublicHttps = ($httpsInput -eq 'y' -or $httpsInput -eq 'Y')
+    $lastHttps = (Get-LastValue 'EnablePublicHttps') -eq 'true'
+    $httpsDefault = if ($lastHttps) { 'Y' } else { 'N' }
+    $httpsInput = Read-Host "  Enable? (y/N) [$httpsDefault]"
+    if ([string]::IsNullOrWhiteSpace($httpsInput)) {
+        $EnablePublicHttps = $lastHttps
+    } else {
+        $EnablePublicHttps = ($httpsInput -eq 'y' -or $httpsInput -eq 'Y')
+    }
 
     # --- Summary and confirm ---
     Write-Host ""
@@ -325,10 +370,30 @@ if ($isInteractive) {
 }
 else {
     Write-Log 'Non-interactive mode: applying defaults for unset parameters.' 'INFO'
-    if ([string]::IsNullOrEmpty($Location)) { $Location = 'eastasia' }
-    if ([string]::IsNullOrEmpty($OsType)) { $OsType = 'Ubuntu' }
-    if ([string]::IsNullOrEmpty($VmSize)) { $VmSize = 'Standard_B2s' }
-    if ([string]::IsNullOrEmpty($AdminUsername)) { $AdminUsername = 'azureclaw' }
+    if ([string]::IsNullOrEmpty($Location)) { $Location = Get-LastValue 'Location' 'eastasia' }
+    if ([string]::IsNullOrEmpty($OsType)) { $OsType = Get-LastValue 'OsType' 'Ubuntu' }
+    if ([string]::IsNullOrEmpty($VmSize)) { $VmSize = Get-LastValue 'VmSize' 'Standard_B2s' }
+    if ([string]::IsNullOrEmpty($AdminUsername)) { $AdminUsername = Get-LastValue 'AdminUsername' 'azureclaw' }
+}
+
+# ============================================================
+# Save deployment preferences for next run
+# ============================================================
+$saveData = [PSCustomObject]@{
+    Location          = $Location
+    OsType            = $OsType
+    VmSize            = $VmSize
+    AdminUsername     = $AdminUsername
+    EnablePublicHttps = $EnablePublicHttps.ToString().ToLower()
+    SavedAt           = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ss')
+}
+try {
+    $saveDir = Split-Path $LastDeployFile -Parent
+    if (-not (Test-Path $saveDir)) { New-Item -ItemType Directory -Path $saveDir -Force | Out-Null }
+    $saveData | ConvertTo-Json | Set-Content -Path $LastDeployFile -Encoding UTF8
+    Write-Log "Saved deployment preferences to $LastDeployFile" 'INFO'
+} catch {
+    Write-Log "Failed to save preferences: $_" 'WARN'
 }
 
 # --- 1. Password generation ---
