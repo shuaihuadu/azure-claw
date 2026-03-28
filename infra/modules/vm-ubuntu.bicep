@@ -1,4 +1,4 @@
-// Ubuntu 24.04 LTS VM module: NIC + VM + CustomScript extension
+// Ubuntu 22.04 LTS VM module: NIC + VM + CustomScript extension
 
 @description('Azure region')
 param location string

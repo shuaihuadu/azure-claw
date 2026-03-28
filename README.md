@@ -2,7 +2,7 @@
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fshuaihuadu%2Fazure-claw%2Fmain%2Finfra%2Fazuredeploy.json)
 
-一键将 [OpenClaw](https://openclaw.ai/) 个人 AI 助手部署到 Azure 虚拟机，支持 **Ubuntu 24.04 LTS** 和 **Windows 11** 镜像可选。
+一键将 [OpenClaw](https://openclaw.ai/) 个人 AI 助手部署到 Azure 虚拟机，支持 **Ubuntu 22.04 LTS** 和 **Windows 11** 镜像可选。
 
 ## 什么是 OpenClaw
 
@@ -21,7 +21,7 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
                     ▼
     ┌───────────────────────────────┐
     │     Azure Virtual Machine     │
-    │  (Ubuntu 24.04 / Windows 11)  │
+    │  (Ubuntu 22.04 / Windows 11)  │
     │                               │
     │  ┌─────────────────────────┐  │
     │  │  Caddy (:443 HTTPS)       │  │  ← -EnablePublicHttps 时启用
@@ -63,11 +63,12 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 
 点击上方 **Deploy to Azure** 按钮，在 Azure Portal 中填写参数即可。
 
-> **注意**: Deploy to Azure 按钮需要先生成 ARM 模板并推送到 GitHub：
+> **注意**: Deploy to Azure 按钮需要仓库为 **公开仓库**，且已生成 ARM 模板：
 > ```powershell
 > az bicep build --file infra/main.bicep --outfile infra/azuredeploy.json
 > git add infra/azuredeploy.json && git commit -m "Generate ARM template" && git push
 > ```
+> 如果仓库为私有，请使用方式二的脚本部署。
 
 ### 方式二：脚本部署（推荐）
 
@@ -85,6 +86,8 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 # 启用公网 HTTPS 访问（Caddy + Let's Encrypt 自动证书 + 密码认证）
 .\deploy.ps1 -EnablePublicHttps
 ```
+
+部署完成后，交互模式会提示是否配置 **Microsoft Foundry 模型**（Azure OpenAI），可选择配置或跳过（后续通过 `scripts/setup-foundry-model.ps1` 配置）。
 
 > **提示**: 不带任何参数运行 `.\deploy.ps1` 会进入交互式引导模式，自动查询你的 Azure 订阅中可用的区域和 VM 规格，避免选到不可用的资源。
 
@@ -140,6 +143,10 @@ https://<FQDN>  # FQDN 参见 .env 文件
 
 # Gateway 登录密码参见 .env 文件中的 GATEWAY_PASSWORD
 
+# 首次连接需要设备配对（浏览器显示 "pairing required"）
+# SSH 登录服务器后执行：
+openclaw devices approve --latest
+
 # 检查服务状态
 sudo systemctl status openclaw
 
@@ -170,6 +177,10 @@ http://localhost:18789
 # https://<FQDN>  # FQDN 参见 .env 文件
 
 # Gateway 登录密码参见 .env 文件中的 GATEWAY_PASSWORD
+
+# 首次连接需要设备配对（浏览器显示 "pairing required"）
+# 在 PowerShell 中执行：
+wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest
 
 # 打开 PowerShell 运行诊断
 openclaw doctor
@@ -246,6 +257,10 @@ azure-claw/
 - 参考 OpenClaw [安全指南](https://docs.openclaw.ai/gateway/security)
 
 ## 常见问题
+
+### 首次连接为什么要配对？
+
+OpenClaw Gateway 使用设备配对机制保障安全。每个新浏览器/设备首次连接时需要在服务器端执行 `openclaw devices approve --latest` 审批。配对基于浏览器存储的 device token，更换浏览器、清除数据或使用隐私模式都需要重新配对。
 
 ### 支持哪些 AI 模型？
 

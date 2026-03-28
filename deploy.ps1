@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Deploy OpenClaw to Azure VM (Ubuntu 24.04 LTS or Windows 11).
+    Deploy OpenClaw to Azure VM (Ubuntu 22.04 LTS or Windows 11).
     Run without parameters for interactive guided setup.
 
 .PARAMETER Location
@@ -540,7 +540,7 @@ $guideHeader = @"
 - 部署时间: $($StartTime.ToString('yyyy-MM-dd HH:mm:ss'))
 - 公网 IP: $publicIpAddress
 - 域名: $vmFqdn
-- 操作系统: $(if ($deployedOsType -eq 'Ubuntu') { 'Ubuntu 24.04 LTS' } else { 'Windows 11' })
+- 操作系统: $(if ($deployedOsType -eq 'Ubuntu') { 'Ubuntu 22.04 LTS' } else { 'Windows 11' })
 - VM 规格: $VmSize
 - 资源组: $ResourceGroup
 - 公网 HTTPS: $(if ($EnablePublicHttps) { '已启用 (Caddy + Let''s Encrypt)' } else { '未启用' })

@@ -2,13 +2,13 @@
 
 ## 项目概述
 
-azure-claw 是一个一键部署项目，将 [OpenClaw](https://github.com/openclaw/openclaw) 个人 AI 助手部署到 Azure VM。支持 Ubuntu 24.04 LTS 和 Windows 11 双镜像。
+azure-claw 是一个一键部署项目，将 [OpenClaw](https://github.com/openclaw/openclaw) 个人 AI 助手部署到 Azure VM。支持 Ubuntu 22.04 LTS 和 Windows 11 双镜像。
 
 ## 技术栈
 
 - **基础设施**: Azure Bicep → ARM 模板，Azure Developer CLI (azd)
 - **部署脚本**: PowerShell (`deploy.ps1` / `destroy.ps1`)
-- **目标平台**: Azure VM (Ubuntu 24.04 LTS / Windows 11)
+- **目标平台**: Azure VM (Ubuntu 22.04 LTS / Windows 11)
 - **VM 安装脚本**: Bash (Ubuntu) / PowerShell (Windows)
 - **运行时**: Node.js 24 (推荐) 或 Node 22.16+
 - **应用**: OpenClaw Gateway (TypeScript, npm 全局安装)
@@ -68,7 +68,7 @@ azure-claw/
 
 - VM 名称固定为 `openclaw-vm`，不作为用户参数
 - SSH 认证方式固定为 password，不暴露 authenticationType 参数
-- Ubuntu 镜像固定为 24.04 LTS
+- Ubuntu 镜像固定为 22.04 LTS（eastasia/japaneast 无 24.04 镜像）
 
 ### 模块化原则
 
@@ -170,7 +170,7 @@ Ubuntu 版本：
 
 - 部署时间: 2026-03-20 14:30:52
 - 公网 IP: 20.xxx.xxx.xxx
-- 操作系统: Ubuntu 24.04 LTS
+- 操作系统: Ubuntu 22.04 LTS
 - VM 规格: Standard_B2s
 - 资源组: rg-openclaw
 
