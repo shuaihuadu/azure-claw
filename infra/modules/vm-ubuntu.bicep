@@ -1,4 +1,4 @@
-// Ubuntu 22.04 LTS VM module: NIC + VM + CustomScript extension
+// Ubuntu 24.04 LTS VM module: NIC + VM + CustomScript extension
 
 @description('Azure region')
 param location string
@@ -78,8 +78,8 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-07-01' = {
     storageProfile: {
       imageReference: {
         publisher: 'Canonical'
-        offer: '0001-com-ubuntu-server-jammy'
-        sku: '22_04-lts-gen2'
+        offer: 'ubuntu-24_04-lts'
+        sku: 'server'
         version: 'latest'
       }
       osDisk: {

@@ -2,7 +2,7 @@
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fshuaihuadu%2Fazure-claw%2Fmain%2Finfra%2Fazuredeploy.json)
 
-一键将 [OpenClaw](https://openclaw.ai/) 个人 AI 助手部署到 Azure 虚拟机，支持 **Ubuntu 22.04 LTS** 和 **Windows 11** 镜像可选。
+一键将 [OpenClaw](https://openclaw.ai/) 个人 AI 助手部署到 Azure 虚拟机，支持 **Ubuntu 24.04 LTS** 和 **Windows 11** 镜像可选。
 
 ## 什么是 OpenClaw
 
@@ -21,7 +21,7 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
                     ▼
     ┌───────────────────────────────┐
     │     Azure Virtual Machine     │
-    │  (Ubuntu 22.04 / Windows 11)  │
+    │  (Ubuntu 24.04 / Windows 11)  │
     │                               │
     │  ┌─────────────────────────┐  │
     │  │  Caddy (:443 HTTPS)       │  │  ← -EnablePublicHttps 时启用

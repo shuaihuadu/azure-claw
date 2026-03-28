@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "6034068880843822298"
+      "templateHash": "16566326029533820160"
     }
   },
   "parameters": {
@@ -314,7 +314,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "1927850166140874732"
+              "templateHash": "4583713788787103385"
             }
           },
           "parameters": {
@@ -434,8 +434,8 @@
                 "storageProfile": {
                   "imageReference": {
                     "publisher": "Canonical",
-                    "offer": "0001-com-ubuntu-server-jammy",
-                    "sku": "22_04-lts-gen2",
+                    "offer": "ubuntu-24_04-lts",
+                    "sku": "server",
                     "version": "latest"
                   },
                   "osDisk": {
