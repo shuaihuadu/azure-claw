@@ -18,6 +18,9 @@
 .PARAMETER AdminPassword
     VM admin password. Auto-generated if not provided.
 
+.PARAMETER ResourceGroup
+    Resource group name. Default: rg-openclaw
+
 .PARAMETER EnablePublicHttps
     Enable public HTTPS access via Caddy + Let's Encrypt. Default: off.
 
@@ -37,11 +40,11 @@ param(
     [string]$OsType = '',
     [string]$AdminUsername = '',
     [string]$AdminPassword = '',
+    [string]$ResourceGroup = '',
     [switch]$EnablePublicHttps
 )
 
 $ErrorActionPreference = 'Stop'
-$ResourceGroup = 'rg-openclaw'
 $TemplateFile = Join-Path $PSScriptRoot 'infra' 'main.bicep'
 $StartTime = Get-Date
 $LastDeployFile = Join-Path $PSScriptRoot 'logs' '.last-deploy.json'
@@ -200,7 +203,7 @@ if ($isInteractive) {
     else {
         $subNames = $subscriptions | ForEach-Object { $_.name }
         $subDescs = $subscriptions | ForEach-Object { "($($_.id.Substring(0, 8))...)" }
-        $selectedSubName = Read-Choice -Prompt "[1/6] Select Azure subscription:" `
+        $selectedSubName = Read-Choice -Prompt "[1/7] Select Azure subscription:" `
             -Options $subNames -Descriptions $subDescs -Default 1
         $selectedSub = $subscriptions | Where-Object { $_.name -eq $selectedSubName } | Select-Object -First 1
     }
@@ -210,6 +213,59 @@ if ($isInteractive) {
         $accountInfo = az account show --output json | ConvertFrom-Json
     }
     Write-Log "Using subscription: $($accountInfo.name) ($($accountInfo.id))" 'INFO'
+
+    # --- Select resource group ---
+    Write-Host ""
+    Write-Log 'Querying existing resource groups...' 'STEP'
+    $existingRgs = az group list --query "[].{name:name, location:location}" --output json | ConvertFrom-Json
+
+    $lastRg = Get-LastValue 'ResourceGroup' 'rg-openclaw'
+    Write-Host "[2/7] Resource group:"
+    Write-Host "    1. Create new (or reuse '$lastRg')"
+
+    $rgOptions = @($lastRg)
+    $rgDescs = @('(default)')
+    if ($existingRgs.Count -gt 0) {
+        $otherRgs = $existingRgs | Where-Object { $_.name -ne $lastRg } | Sort-Object name
+        foreach ($rg in $otherRgs) {
+            $rgOptions += $rg.name
+            $rgDescs += "($($rg.location))"
+        }
+    }
+    # Add custom option
+    Write-Host "    $($rgOptions.Count + 1). Enter custom name"
+    for ($i = 1; $i -lt $rgOptions.Count; $i++) {
+        Write-Host "    $($i + 1). $($rgOptions[$i])  $($rgDescs[$i])"
+    }
+
+    while (`$true) {
+        `$rgInput = Read-Host "  Choice [1]"
+        if ([string]::IsNullOrWhiteSpace(`$rgInput)) { `$rgInput = '1' }
+        `$rgNum = 0
+        if ([int]::TryParse(`$rgInput, [ref]`$rgNum)) {
+            if (`$rgNum -eq 1) {
+                `$ResourceGroup = `$lastRg
+                break
+            }
+            elseif (`$rgNum -ge 2 -and `$rgNum -le `$rgOptions.Count) {
+                `$ResourceGroup = `$rgOptions[`$rgNum - 1]
+                break
+            }
+            elseif (`$rgNum -eq `$rgOptions.Count + 1) {
+                while (`$true) {
+                    `$customRg = Read-Host "  Enter resource group name"
+                    if (-not [string]::IsNullOrWhiteSpace(`$customRg) -and `$customRg -match '^[a-zA-Z0-9._-]+$') {
+                        `$ResourceGroup = `$customRg.Trim()
+                        break
+                    }
+                    Write-Host "  Invalid name. Use letters, numbers, dots, hyphens, underscores." -ForegroundColor Yellow
+                }
+                break
+            }
+        }
+        Write-Host "  Invalid choice." -ForegroundColor Yellow
+    }
+    Write-Log "Resource group: $ResourceGroup" 'INFO'
 
     # --- Select region ---
     Write-Host ""
@@ -246,12 +302,12 @@ if ($isInteractive) {
                 }
             }
         }
-        $Location = Read-Choice -Prompt "[2/6] Select Azure region:" `
+        $Location = Read-Choice -Prompt "[3/7] Select Azure region:" `
             -Options $regionNames -Descriptions $regionDescs -Default $regionDefault -AllowCustom
     }
     else {
         $allRegionNames = ($regions | Sort-Object name | ForEach-Object { $_.name })
-        Write-Host "[2/6] No preferred regions available. Enter a region name."
+        Write-Host "[3/7] No preferred regions available. Enter a region name."
         Write-Host "  Available: $($allRegionNames -join ', ')"
         while ($true) {
             $Location = (Read-Host "  Region").Trim()
@@ -263,7 +319,7 @@ if ($isInteractive) {
 
     # --- Select OS type ---
     $osDefault = if ((Get-LastValue 'OsType') -eq 'Windows') { 2 } else { 1 }
-    $OsType = Read-Choice -Prompt "[3/6] Select operating system:" `
+    $OsType = Read-Choice -Prompt "[4/7] Select operating system:" `
         -Options @('Ubuntu', 'Windows') `
         -Descriptions @('22.04 LTS (recommended, 4GB+ RAM)', '11 via WSL2 (requires 8GB+ RAM)') `
         -Default $osDefault
@@ -317,7 +373,7 @@ if ($isInteractive) {
             $idx = [array]::IndexOf($sizeNames, $lastVmSize)
             if ($idx -ge 0) { $sizeDefault = $idx + 1 }
         }
-        $VmSize = Read-Choice -Prompt "[4/6] Select VM size:" `
+        $VmSize = Read-Choice -Prompt "[5/7] Select VM size:" `
             -Options $sizeNames -Descriptions $sizeDescs -Default $sizeDefault -AllowCustom
     }
     else {
@@ -348,7 +404,7 @@ if ($isInteractive) {
     # --- Admin credentials ---
     Write-Host ""
     $lastUser = Get-LastValue 'AdminUsername' 'azureclaw'
-    $inputUser = Read-Host "[5/6] Admin username [$lastUser]"
+    $inputUser = Read-Host "[6/7] Admin username [$lastUser]"
     $AdminUsername = if ([string]::IsNullOrWhiteSpace($inputUser)) { $lastUser } else { $inputUser.Trim() }
 
     $secPw = Read-Host "  Password (leave empty to auto-generate)" -AsSecureString
@@ -360,7 +416,7 @@ if ($isInteractive) {
 
     # --- Enable HTTPS ---
     Write-Host ""
-    Write-Host "[6/6] Enable public HTTPS? (Caddy + Let's Encrypt auto-certificate)"
+    Write-Host "[7/7] Enable public HTTPS? (Caddy + Let's Encrypt auto-certificate)"
     Write-Host "  This adds password-protected HTTPS access via the Azure VM domain name."
     $lastHttps = (Get-LastValue 'EnablePublicHttps') -eq 'true'
     $httpsDefault = if ($lastHttps) { 'Y' } else { 'N' }
@@ -398,6 +454,7 @@ else {
     if ([string]::IsNullOrEmpty($Location)) { $Location = Get-LastValue 'Location' 'eastasia' }
     if ([string]::IsNullOrEmpty($OsType)) { $OsType = Get-LastValue 'OsType' 'Ubuntu' }
     if ([string]::IsNullOrEmpty($VmSize)) { $VmSize = Get-LastValue 'VmSize' 'Standard_B2s' }
+    if ([string]::IsNullOrEmpty($ResourceGroup)) { $ResourceGroup = Get-LastValue 'ResourceGroup' 'rg-openclaw' }
     if ([string]::IsNullOrEmpty($AdminUsername)) { $AdminUsername = Get-LastValue 'AdminUsername' 'azureclaw' }
 }
 
@@ -409,6 +466,7 @@ $saveData = [PSCustomObject]@{
     OsType            = $OsType
     VmSize            = $VmSize
     AdminUsername     = $AdminUsername
+    ResourceGroup     = $ResourceGroup
     EnablePublicHttps = $EnablePublicHttps.ToString().ToLower()
     SavedAt           = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ss')
 }
@@ -792,15 +850,15 @@ $KnownModels = @{
     'gpt-4.1'                 = @{ Reasoning = $false; Input = @('text', 'image'); Context = 1048576; MaxTokens = 32768 }
     'gpt-4.1-mini'            = @{ Reasoning = $false; Input = @('text', 'image'); Context = 1048576; MaxTokens = 32768 }
     'gpt-4.1-nano'            = @{ Reasoning = $false; Input = @('text', 'image'); Context = 1048576; MaxTokens = 32768 }
-    'gpt-5.1-chat'            = @{ Reasoning = $true;  Input = @('text', 'image'); Context = 1048576; MaxTokens = 32768 }
-    'gpt-5.4-mini'            = @{ Reasoning = $true;  Input = @('text', 'image'); Context = 1048576; MaxTokens = 32768 }
-    'grok-3'                  = @{ Reasoning = $false; Input = @('text');           Context = 131072;  MaxTokens = 16384 }
-    'grok-4-1-fast-reasoning' = @{ Reasoning = $true;  Input = @('text');           Context = 131072;  MaxTokens = 16384 }
-    'DeepSeek-V3.2'           = @{ Reasoning = $false; Input = @('text');           Context = 131072;  MaxTokens = 16384 }
-    'DeepSeek-R1'             = @{ Reasoning = $true;  Input = @('text');           Context = 131072;  MaxTokens = 16384 }
-    'Kimi-K2.5'               = @{ Reasoning = $false; Input = @('text');           Context = 131072;  MaxTokens = 16384 }
-    'Phi-4-reasoning-plus'    = @{ Reasoning = $true;  Input = @('text');           Context = 131072;  MaxTokens = 16384 }
-    'Phi-4'                   = @{ Reasoning = $false; Input = @('text');           Context = 16384;   MaxTokens = 4096 }
+    'gpt-5.1-chat'            = @{ Reasoning = $true; Input = @('text', 'image'); Context = 1048576; MaxTokens = 32768 }
+    'gpt-5.4-mini'            = @{ Reasoning = $true; Input = @('text', 'image'); Context = 1048576; MaxTokens = 32768 }
+    'grok-3'                  = @{ Reasoning = $false; Input = @('text'); Context = 131072; MaxTokens = 16384 }
+    'grok-4-1-fast-reasoning' = @{ Reasoning = $true; Input = @('text'); Context = 131072; MaxTokens = 16384 }
+    'DeepSeek-V3.2'           = @{ Reasoning = $false; Input = @('text'); Context = 131072; MaxTokens = 16384 }
+    'DeepSeek-R1'             = @{ Reasoning = $true; Input = @('text'); Context = 131072; MaxTokens = 16384 }
+    'Kimi-K2.5'               = @{ Reasoning = $false; Input = @('text'); Context = 131072; MaxTokens = 16384 }
+    'Phi-4-reasoning-plus'    = @{ Reasoning = $true; Input = @('text'); Context = 131072; MaxTokens = 16384 }
+    'Phi-4'                   = @{ Reasoning = $false; Input = @('text'); Context = 16384; MaxTokens = 4096 }
 }
 
 function Get-ModelSpec {
