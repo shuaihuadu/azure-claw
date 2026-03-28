@@ -53,7 +53,29 @@ npm install -g openclaw@latest
 log ">>> Creating OpenClaw configuration..."
 mkdir -p "${ADMIN_HOME}/.openclaw"
 
-# Minimal config with gateway mode set for headless operation
+# Build config with gateway mode; add allowedOrigins when using HTTPS reverse proxy
+log ">>> Creating OpenClaw configuration..."
+mkdir -p "${ADMIN_HOME}/.openclaw"
+
+if [ "${ENABLE_PUBLIC_HTTPS}" = "true" ] && [ -n "${FQDN}" ]; then
+cat > "${ADMIN_HOME}/.openclaw/openclaw.json" <<EOF
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "anthropic/claude-opus-4-6"
+      }
+    }
+  },
+  "gateway": {
+    "mode": "local",
+    "controlUi": {
+      "allowedOrigins": ["https://${FQDN}"]
+    }
+  }
+}
+EOF
+else
 cat > "${ADMIN_HOME}/.openclaw/openclaw.json" <<EOF
 {
   "agents": {
@@ -68,6 +90,7 @@ cat > "${ADMIN_HOME}/.openclaw/openclaw.json" <<EOF
   }
 }
 EOF
+fi
 chown -R "${ADMIN_USER}:${ADMIN_USER}" "${ADMIN_HOME}/.openclaw"
 
 # 6. Create and enable systemd service

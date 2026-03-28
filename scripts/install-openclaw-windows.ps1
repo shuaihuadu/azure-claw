@@ -141,7 +141,26 @@ Log "OpenClaw installed"
 
 # Create config (idempotent: always overwrite with correct config)
 Log "Creating OpenClaw configuration..."
-wsl -d Ubuntu -u $wslUser -- bash -c "mkdir -p ~/.openclaw && cat > ~/.openclaw/openclaw.json << 'HEREDOC'
+if ($enableHttps -and $fqdn) {
+    $configJson = @"
+{
+  ""agents"": {
+    ""defaults"": {
+      ""model"": {
+        ""primary"": ""anthropic/claude-opus-4-6""
+      }
+    }
+  },
+  ""gateway"": {
+    ""mode"": ""local"",
+    ""controlUi"": {
+      ""allowedOrigins"": [""https://$fqdn""]
+    }
+  }
+}
+"@
+} else {
+    $configJson = @"
 {
   ""agents"": {
     ""defaults"": {
@@ -154,6 +173,10 @@ wsl -d Ubuntu -u $wslUser -- bash -c "mkdir -p ~/.openclaw && cat > ~/.openclaw/
     ""mode"": ""local""
   }
 }
+"@
+}
+wsl -d Ubuntu -u $wslUser -- bash -c "mkdir -p ~/.openclaw && cat > ~/.openclaw/openclaw.json << 'HEREDOC'
+$configJson
 HEREDOC"
 
 # Create systemd service in WSL

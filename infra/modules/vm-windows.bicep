@@ -111,7 +111,11 @@ var ww1 = replace(winWrapperTemplate, '__PH_HTTPS__', enablePublicHttps ? 'true'
 var ww2 = replace(ww1, '__PH_GWPWD__', encodedGatewayPassword)
 var ww3 = replace(ww2, '__PH_FQDN__', fqdn)
 // Remove the original param() block from the script since we set variables directly
-var scriptWithoutParams = replace(scriptContent, 'param(\r\n    [switch]$EnablePublicHttps,\r\n    [string]$GatewayPasswordB64 = \'\',\r\n    [string]$Fqdn = \'\'\r\n)', '# (params set by wrapper)')
+var scriptWithoutParams = replace(
+  scriptContent,
+  'param(\r\n    [switch]$EnablePublicHttps,\r\n    [string]$GatewayPasswordB64 = \'\',\r\n    [string]$Fqdn = \'\'\r\n)',
+  '# (params set by wrapper)'
+)
 var winFullScript = replace(ww3, '__PH_SCRIPT__', scriptWithoutParams)
 
 resource installScript 'Microsoft.Compute/virtualMachines/extensions@2024-07-01' = {
