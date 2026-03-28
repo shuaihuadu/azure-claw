@@ -91,11 +91,8 @@ else
   BIND_MODE="lan"
 fi
 
-# Build ExecStart command with auth flags
+# Build ExecStart command (password is read from OPENCLAW_GATEWAY_PASSWORD env var)
 EXEC_CMD="${OPENCLAW_PATH} gateway run --port 18789 --bind ${BIND_MODE} --auth password"
-if [ -n "${GATEWAY_PASSWORD}" ]; then
-  EXEC_CMD="${EXEC_CMD} --password \${OPENCLAW_GATEWAY_PASSWORD}"
-fi
 
 cat > /etc/systemd/system/openclaw.service <<EOF
 [Unit]
@@ -107,7 +104,7 @@ Wants=network-online.target
 Type=simple
 User=${ADMIN_USER}
 ExecStart=${EXEC_CMD}
-Restart=on-failure
+Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
 Environment=OPENCLAW_GATEWAY_PASSWORD=${GATEWAY_PASSWORD}

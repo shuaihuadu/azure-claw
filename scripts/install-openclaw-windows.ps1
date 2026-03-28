@@ -162,7 +162,6 @@ HEREDOC"
 Log "Configuring systemd service..."
 $bindMode = if ($enableHttps) { "loopback" } else { "lan" }
 $execCmd = "/usr/local/bin/openclaw gateway run --port 18789 --bind $bindMode --auth password"
-if ($gwPassword) { $execCmd += " --password `$OPENCLAW_GATEWAY_PASSWORD" }
 $envLine = if ($gwPassword) { "Environment=OPENCLAW_GATEWAY_PASSWORD=$gwPassword" } else { "" }
 $unit = @"
 [Unit]
@@ -174,7 +173,7 @@ Wants=network-online.target
 Type=simple
 User=$wslUser
 ExecStart=$execCmd
-Restart=on-failure
+Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
 $envLine
