@@ -140,42 +140,20 @@ wsl -d Ubuntu -u $wslUser -- bash -c "sudo npm install -g openclaw@latest"
 Log "OpenClaw installed"
 
 # Create config (idempotent: always overwrite with correct config)
+# Use PowerShell hashtable → JSON for safe handling of special characters in password
 Log "Creating OpenClaw configuration..."
+$configObj = @{
+    agents = @{ defaults = @{ model = @{ primary = "anthropic/claude-opus-4-6" } } }
+    gateway = @{ mode = "local" }
+}
 if ($enableHttps -and $fqdn) {
-    $configJson = @"
-{
-  ""agents"": {
-    ""defaults"": {
-      ""model"": {
-        ""primary"": ""anthropic/claude-opus-4-6""
-      }
-    }
-  },
-  ""gateway"": {
-    ""mode"": ""local"",
-    ""trustedProxies"": [""127.0.0.1/32"", ""::1/128""],
-    ""controlUi"": {
-      ""allowedOrigins"": [""https://$fqdn""]
-    }
-  }
+    $configObj.gateway.trustedProxies = @("127.0.0.1/32", "::1/128")
+    $configObj.gateway.controlUi = @{ allowedOrigins = @("https://$fqdn") }
 }
-"@
-} else {
-    $configJson = @"
-{
-  ""agents"": {
-    ""defaults"": {
-      ""model"": {
-        ""primary"": ""anthropic/claude-opus-4-6""
-      }
-    }
-  },
-  ""gateway"": {
-    ""mode"": ""local""
-  }
+if ($gwPassword) {
+    $configObj.gateway.remote = @{ password = $gwPassword }
 }
-"@
-}
+$configJson = $configObj | ConvertTo-Json -Depth 5
 wsl -d Ubuntu -u $wslUser -- bash -c "mkdir -p ~/.openclaw && cat > ~/.openclaw/openclaw.json << 'HEREDOC'
 $configJson
 HEREDOC"

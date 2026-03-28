@@ -53,45 +53,29 @@ npm install -g openclaw@latest
 log ">>> Creating OpenClaw configuration..."
 mkdir -p "${ADMIN_HOME}/.openclaw"
 
-# Build config with gateway mode; add allowedOrigins when using HTTPS reverse proxy
+# Build config with gateway mode; use Python for safe JSON generation (handles special chars in password)
 log ">>> Creating OpenClaw configuration..."
 mkdir -p "${ADMIN_HOME}/.openclaw"
 
-if [ "${ENABLE_PUBLIC_HTTPS}" = "true" ] && [ -n "${FQDN}" ]; then
-cat > "${ADMIN_HOME}/.openclaw/openclaw.json" <<EOF
-{
-  "agents": {
-    "defaults": {
-      "model": {
-        "primary": "anthropic/claude-opus-4-6"
-      }
-    }
-  },
-  "gateway": {
-    "mode": "local",
-    "trustedProxies": ["127.0.0.1/32", "::1/128"],
-    "controlUi": {
-      "allowedOrigins": ["https://${FQDN}"]
-    }
-  }
+python3 - "${ADMIN_HOME}/.openclaw/openclaw.json" "${ENABLE_PUBLIC_HTTPS}" "${FQDN}" "${GATEWAY_PASSWORD}" <<'PYEOF'
+import json, sys
+config_path, https_enabled, fqdn, gw_password = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+
+config = {
+    "agents": {"defaults": {"model": {"primary": "anthropic/claude-opus-4-6"}}},
+    "gateway": {"mode": "local"}
 }
-EOF
-else
-cat > "${ADMIN_HOME}/.openclaw/openclaw.json" <<EOF
-{
-  "agents": {
-    "defaults": {
-      "model": {
-        "primary": "anthropic/claude-opus-4-6"
-      }
-    }
-  },
-  "gateway": {
-    "mode": "local"
-  }
-}
-EOF
-fi
+
+if https_enabled == "true" and fqdn:
+    config["gateway"]["trustedProxies"] = ["127.0.0.1/32", "::1/128"]
+    config["gateway"]["controlUi"] = {"allowedOrigins": [f"https://{fqdn}"]}
+
+if gw_password:
+    config["gateway"]["remote"] = {"password": gw_password}
+
+with open(config_path, "w") as f:
+    json.dump(config, f, indent=2)
+PYEOF
 chown -R "${ADMIN_USER}:${ADMIN_USER}" "${ADMIN_HOME}/.openclaw"
 
 # 6. Create and enable systemd service
