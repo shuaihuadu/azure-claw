@@ -565,7 +565,28 @@ ssh ${deployedAdminUsername}@${publicIpAddress}
 5. 运行交互式配置: ``openclaw onboard``
 6. 查看日志: ``journalctl -u openclaw -f``
 
-## 三、清理资源
+## 三、设备配对
+
+首次通过浏览器连接 Gateway 时，需要进行设备配对：
+
+1. 在浏览器中打开 Web 控制台，输入 Gateway Password 后连接
+2. 页面会显示 **"pairing required"**，表示需要在服务器端审批
+3. SSH 登录服务器，执行以下命令审批最新的配对请求：
+
+``````bash
+openclaw devices approve --latest
+``````
+
+4. 审批后浏览器会自动连接成功
+
+> **注意**: 每个新浏览器/设备都需要重新配对和审批。配对基于浏览器存储的 device token，更换浏览器、清除浏览器数据或使用隐私模式都需要重新配对。
+>
+> 常用设备管理命令：
+> - ``openclaw devices list`` — 查看已配对设备
+> - ``openclaw devices approve --latest`` — 审批最新请求
+> - ``openclaw devices remove <id>`` — 移除设备
+
+## 四、清理资源
 
 ``````powershell
 .\destroy.ps1
@@ -590,7 +611,28 @@ ssh ${deployedAdminUsername}@${publicIpAddress}
 4. 运行交互式配置: ``openclaw onboard``
 5. 查看日志: ``journalctl -u openclaw -f``
 
-## 三、清理资源
+## 三、设备配对
+
+首次通过浏览器连接 Gateway 时，需要进行设备配对：
+
+1. 在浏览器中打开 Web 控制台，输入 Gateway Password 后连接
+2. 页面会显示 **"pairing required"**，表示需要在服务器端审批
+3. SSH 登录服务器，执行以下命令审批最新的配对请求：
+
+``````bash
+openclaw devices approve --latest
+``````
+
+4. 审批后浏览器会自动连接成功
+
+> **注意**: 每个新浏览器/设备都需要重新配对和审批。配对基于浏览器存储的 device token，更换浏览器、清除浏览器数据或使用隐私模式都需要重新配对。
+>
+> 常用设备管理命令：
+> - ``openclaw devices list`` — 查看已配对设备
+> - ``openclaw devices approve --latest`` — 审批最新请求
+> - ``openclaw devices remove <id>`` — 移除设备
+
+## 四、清理资源
 
 ``````powershell
 .\destroy.ps1
@@ -617,7 +659,28 @@ mstsc /v:${publicIpAddress}
 4. 打开 PowerShell 运行: ``openclaw doctor``
 5. 运行交互式配置: ``openclaw onboard --install-daemon``
 
-## 三、清理资源
+## 三、设备配对
+
+首次通过浏览器连接 Gateway 时，需要进行设备配对：
+
+1. 在浏览器中打开 Web 控制台，输入 Gateway Password 后连接
+2. 页面会显示 **"pairing required"**，表示需要在服务器端审批
+3. RDP 登录服务器，打开 PowerShell 执行：
+
+``````powershell
+wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest
+``````
+
+4. 审批后浏览器会自动连接成功
+
+> **注意**: 每个新浏览器/设备都需要重新配对和审批。配对基于浏览器存储的 device token，更换浏览器、清除浏览器数据或使用隐私模式都需要重新配对。
+>
+> 常用设备管理命令：
+> - ``wsl -d Ubuntu -u openclaw -- openclaw devices list`` — 查看已配对设备
+> - ``wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest`` — 审批最新请求
+> - ``wsl -d Ubuntu -u openclaw -- openclaw devices remove <id>`` — 移除设备
+
+## 四、清理资源
 
 ``````powershell
 .\destroy.ps1
@@ -641,7 +704,28 @@ mstsc /v:${publicIpAddress}
 3. 打开 PowerShell 运行: ``openclaw doctor``
 4. 运行交互式配置: ``openclaw onboard --install-daemon``
 
-## 三、清理资源
+## 三、设备配对
+
+首次通过浏览器连接 Gateway 时，需要进行设备配对：
+
+1. 在浏览器中打开 Web 控制台，输入 Gateway Password 后连接
+2. 页面会显示 **"pairing required"**，表示需要在服务器端审批
+3. 在 RDP 桌面打开 PowerShell 执行：
+
+``````powershell
+wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest
+``````
+
+4. 审批后浏览器会自动连接成功
+
+> **注意**: 每个新浏览器/设备都需要重新配对和审批。配对基于浏览器存储的 device token，更换浏览器、清除浏览器数据或使用隐私模式都需要重新配对。
+>
+> 常用设备管理命令：
+> - ``wsl -d Ubuntu -u openclaw -- openclaw devices list`` — 查看已配对设备
+> - ``wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest`` — 审批最新请求
+> - ``wsl -d Ubuntu -u openclaw -- openclaw devices remove <id>`` — 移除设备
+
+## 四、清理资源
 
 ``````powershell
 .\destroy.ps1
