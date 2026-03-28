@@ -153,6 +153,7 @@ if ($enableHttps -and $fqdn) {
   },
   ""gateway"": {
     ""mode"": ""local"",
+    ""trustedProxies"": [""127.0.0.1/32"", ""::1/128""],
     ""controlUi"": {
       ""allowedOrigins"": [""https://$fqdn""]
     }
