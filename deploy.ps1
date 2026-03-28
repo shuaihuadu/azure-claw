@@ -135,7 +135,8 @@ if (Test-Path $LastDeployFile) {
     try {
         $lastDeploy = Get-Content -Path $LastDeployFile -Raw -Encoding utf8 | ConvertFrom-Json
         Write-Log "Loaded previous deployment preferences from $LastDeployFile" 'INFO'
-    } catch {
+    }
+    catch {
         Write-Log 'Failed to load previous preferences, using defaults.' 'WARN'
     }
 }
@@ -233,7 +234,8 @@ if ($isInteractive) {
             $idx = [array]::IndexOf($regionNames, $lastLocation)
             if ($idx -ge 0) {
                 $regionDefault = $idx + 1
-            } else {
+            }
+            else {
                 # Last region not in preferred list — add it if it's a valid region
                 $lastMatch = $regions | Where-Object { $_.name -eq $lastLocation }
                 if ($lastMatch) {
@@ -301,10 +303,10 @@ if ($isInteractive) {
             $lastMatch = $availableSizes | Where-Object { $_.name -eq $lastVmSize }
             if ($lastMatch) {
                 $validRecommended = @(@{
-                    Name     = $lastMatch.name
-                    Cores    = $lastMatch.numberOfCores
-                    MemoryGB = [math]::Round($lastMatch.memoryInMB / 1024, 0)
-                }) + @($validRecommended)
+                        Name     = $lastMatch.name
+                        Cores    = $lastMatch.numberOfCores
+                        MemoryGB = [math]::Round($lastMatch.memoryInMB / 1024, 0)
+                    }) + @($validRecommended)
             }
         }
         $sizeNames = $validRecommended | ForEach-Object { $_.Name }
@@ -365,7 +367,8 @@ if ($isInteractive) {
     $httpsInput = Read-Host "  Enable? (y/N) [$httpsDefault]"
     if ([string]::IsNullOrWhiteSpace($httpsInput)) {
         $EnablePublicHttps = $lastHttps
-    } else {
+    }
+    else {
         $EnablePublicHttps = ($httpsInput -eq 'y' -or $httpsInput -eq 'Y')
     }
 
@@ -414,7 +417,8 @@ try {
     if (-not (Test-Path $saveDir)) { New-Item -ItemType Directory -Path $saveDir -Force | Out-Null }
     $saveData | ConvertTo-Json | Set-Content -Path $LastDeployFile -Encoding UTF8
     Write-Log "Saved deployment preferences to $LastDeployFile" 'INFO'
-} catch {
+}
+catch {
     Write-Log "Failed to save preferences: $_" 'WARN'
 }
 
@@ -778,6 +782,216 @@ else {
 }
 
 Write-Host ""
+
+# ============================================================
+# Optional: Configure Microsoft Foundry models
+# ============================================================
+
+$configureFoundry = $false
+
+if ($isInteractive) {
+    Write-Host ""
+    Write-Host "=========================================="
+    Write-Host "  Microsoft Foundry Model Configuration"
+    Write-Host "=========================================="
+    Write-Host ""
+    Write-Host "  Configure Azure OpenAI / Microsoft Foundry models now?"
+    Write-Host "  You can also configure later via: scripts/setup-foundry-model.ps1"
+    Write-Host ""
+
+    $foundryChoice = Read-Host "  Configure now? (y/N)"
+    if ($foundryChoice -match '^[Yy]') {
+        $configureFoundry = $true
+    }
+}
+
+if ($configureFoundry) {
+    Write-Host ""
+
+    # Prompt for Foundry endpoint
+    $foundryEndpoint = Read-Host "  Foundry Endpoint URL (e.g. https://xxx.openai.azure.com)"
+    if ([string]::IsNullOrWhiteSpace($foundryEndpoint)) {
+        Write-Host "[WARN] No endpoint provided, skipping Foundry configuration." -ForegroundColor Yellow
+        $configureFoundry = $false
+    }
+}
+
+if ($configureFoundry) {
+    # Normalize endpoint
+    $foundryEndpoint = $foundryEndpoint.TrimEnd('/')
+    if ($foundryEndpoint -notmatch '/openai/v1$') {
+        if ($foundryEndpoint -match '/openai$') {
+            $foundryEndpoint = "$foundryEndpoint/v1"
+        }
+        else {
+            $foundryEndpoint = "$foundryEndpoint/openai/v1"
+        }
+    }
+
+    # Prompt for API key
+    $foundryApiKey = Read-Host "  API Key"
+    if ([string]::IsNullOrWhiteSpace($foundryApiKey)) {
+        Write-Host "[WARN] No API key provided, skipping Foundry configuration." -ForegroundColor Yellow
+        $configureFoundry = $false
+    }
+}
+
+if ($configureFoundry) {
+    # Prompt for model names
+    Write-Host ""
+    Write-Host "  Enter model deployment names (comma-separated)."
+    Write-Host "  Common models: gpt-4.1, gpt-4.1-mini, gpt-5.1-chat, DeepSeek-V3.2"
+    $modelInput = Read-Host "  Models"
+    if ([string]::IsNullOrWhiteSpace($modelInput)) {
+        Write-Host "[WARN] No models provided, skipping Foundry configuration." -ForegroundColor Yellow
+        $configureFoundry = $false
+    }
+}
+
+if ($configureFoundry) {
+    $foundryModels = $modelInput -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
+
+    if ($foundryModels.Count -eq 0) {
+        Write-Host "[WARN] No valid models, skipping Foundry configuration." -ForegroundColor Yellow
+    }
+    else {
+        Write-Host ""
+        Write-Host "[STEP] Configuring Foundry models on VM..." -ForegroundColor Cyan
+        Write-Host "  Endpoint: $foundryEndpoint" -ForegroundColor Cyan
+        Write-Host "  Models:   $($foundryModels -join ', ')" -ForegroundColor Cyan
+
+        # Build the models JSON array entries
+        $modelEntries = @()
+        foreach ($m in $foundryModels) {
+            $isReasoning = $m -match '(?i)(reasoning|think|\.1-chat|gpt-5|deepseek-r)'
+            $hasVision = $m -match '(?i)(gpt-[45]|vision|multimodal)'
+            $inputTypes = if ($hasVision) { '["text","image"]' } else { '["text"]' }
+            $reasoning = if ($isReasoning) { 'true' } else { 'false' }
+
+            # Format display name: gpt-4.1 -> GPT 4.1
+            $displayName = ($m -split '-' | ForEach-Object {
+                    if ($_ -cmatch '^[a-z]') { (Get-Culture).TextInfo.ToTitleCase($_) } else { $_ }
+                }) -join ' '
+            $displayName = $displayName -replace '(?i)^Gpt ', 'GPT '
+
+            $modelEntries += @"
+      {
+        "id": "$m",
+        "name": "$displayName",
+        "reasoning": $reasoning,
+        "input": $inputTypes,
+        "contextWindow": 1048576,
+        "maxTokens": 32768
+      }
+"@
+        }
+        $modelsJson = $modelEntries -join ",`n"
+
+        # Build agents.defaults.models entries (required for model to be "configured")
+        $agentModelEntries = @()
+        foreach ($m in $foundryModels) {
+            $agentModelEntries += "    `"azure-openai/$m`": {}"
+        }
+        $agentModelsJson = $agentModelEntries -join ",`n"
+
+        # Set first model as default primary
+        $defaultModel = "azure-openai/$($foundryModels[0])"
+
+        # Build the full config JSON, preserving existing gateway settings
+        # We read existing config, merge, and write back via a bash script
+        $configScript = @"
+#!/bin/bash
+set -euo pipefail
+
+CONFIG_FILE="/home/${deployedAdminUsername}/.openclaw/openclaw.json"
+
+# Use python3 to merge JSON (available on Ubuntu)
+python3 << 'PYEOF'
+import json, os
+
+config_path = os.path.expanduser("$CONFIG_FILE")
+
+with open(config_path) as f:
+    config = json.load(f)
+
+# Add models.providers.azure-openai
+if 'models' not in config:
+    config['models'] = {}
+if 'providers' not in config['models']:
+    config['models']['providers'] = {}
+
+config['models']['providers']['azure-openai'] = {
+    "baseUrl": "$foundryEndpoint",
+    "apiKey": "$foundryApiKey",
+    "api": "openai-completions",
+    "headers": {"api-key": "$foundryApiKey"},
+    "authHeader": False,
+    "models": [
+$(($modelEntries | ForEach-Object { "      " + $_.Trim() }) -join ",`n")
+    ]
+}
+
+# Ensure agents.defaults.models exists
+if 'agents' not in config:
+    config['agents'] = {}
+if 'defaults' not in config['agents']:
+    config['agents']['defaults'] = {}
+if 'models' not in config['agents']['defaults']:
+    config['agents']['defaults']['models'] = {}
+
+# Register models
+$(foreach ($m in $foundryModels) { "config['agents']['defaults']['models']['azure-openai/$m'] = {}" })
+
+# Set default primary model
+if 'model' not in config['agents']['defaults']:
+    config['agents']['defaults']['model'] = {}
+config['agents']['defaults']['model']['primary'] = "$defaultModel"
+
+with open(config_path, 'w') as f:
+    json.dump(config, f, indent=2, ensure_ascii=False)
+
+print(f"Config updated: {len(config['models']['providers']['azure-openai']['models'])} models added")
+print(f"Default model: $defaultModel")
+PYEOF
+
+chown ${deployedAdminUsername}:${deployedAdminUsername} "\$CONFIG_FILE"
+
+# Restart openclaw to pick up new config
+systemctl restart openclaw.service
+sleep 3
+systemctl is-active openclaw.service
+"@
+
+        try {
+            $result = az vm run-command invoke `
+                --resource-group $ResourceGroup `
+                --name $vmName `
+                --command-id RunShellScript `
+                --scripts $configScript `
+                --query "value[0].message" -o tsv 2>&1
+
+            if ($result -match 'models added') {
+                Write-Host ""
+                Write-Host "[OK] Foundry models configured successfully!" -ForegroundColor Green
+                Write-Host $result -ForegroundColor Gray
+
+                # Append Foundry info to .env
+                $envFile = Join-Path $logDir '.env'
+                Add-Content -Path $envFile -Value "FOUNDRY_ENDPOINT=$foundryEndpoint"
+                Add-Content -Path $envFile -Value "FOUNDRY_MODELS=$($foundryModels -join ',')"
+                Add-Content -Path $envFile -Value "FOUNDRY_DEFAULT_MODEL=$defaultModel"
+            }
+            else {
+                Write-Host "[WARN] Foundry configuration may have failed:" -ForegroundColor Yellow
+                Write-Host $result -ForegroundColor Gray
+            }
+        }
+        catch {
+            Write-Host "[WARN] Failed to configure Foundry models: $_" -ForegroundColor Yellow
+            Write-Host "  You can configure later via: scripts/setup-foundry-model.ps1" -ForegroundColor Yellow
+        }
+    }
+}
 
 # Stop transcript
 Stop-Transcript | Out-Null
