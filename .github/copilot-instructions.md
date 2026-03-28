@@ -21,17 +21,22 @@ azure-claw/
 │   └── copilot-instructions.md      # 本文件（Copilot 开发指引）
 ├── docs/                            # 操作手册
 │   ├── guide-microsoft-foundry.md    # 配置 Azure OpenAI / Microsoft Foundry 模型
-│   └── guide-slack.md               # 配置 Slack 通道
+│   ├── guide-model-troubleshooting.md # 模型连接排障指南
+│   ├── guide-operations.md          # 日常运维操作手册
+│   ├── guide-slack.md               # 配置 Slack 通道
+│   └── guide-teams.md               # 配置 Microsoft Teams 通道
 ├── infra/                           # Bicep 基础设施代码
 │   ├── main.bicep                   # 入口模板，根据 osType 参数分发
 │   ├── main.parameters.json         # 默认参数
+│   ├── azuredeploy.json             # 导出的 ARM 模板
 │   └── modules/
 │       ├── network.bicep            # VNet, Subnet, NSG, Public IP
 │       ├── vm-ubuntu.bicep          # Ubuntu VM + NIC + CustomScript
 │       └── vm-windows.bicep         # Windows VM + NIC + CustomScriptExtension
 ├── scripts/
 │   ├── install-openclaw-ubuntu.sh   # Ubuntu: Node.js + OpenClaw + systemd
-│   └── install-openclaw-windows.ps1 # Windows: WSL2 + Node.js + OpenClaw
+│   ├── install-openclaw-windows.ps1 # Windows: WSL2 + Node.js + OpenClaw
+│   └── setup-foundry-model.ps1     # 独立脚本：添加 Foundry 模型到 VM
 ├── deploy.ps1                       # 部署入口脚本
 ├── destroy.ps1                      # 资源清理脚本
 ├── azure.yaml                       # azd 项目描述文件
@@ -69,6 +74,7 @@ azure-claw/
 - VM 名称固定为 `openclaw-vm`，不作为用户参数
 - SSH 认证方式固定为 password，不暴露 authenticationType 参数
 - Ubuntu 镜像固定为 24.04 LTS（offer: ubuntu-24_04-lts, sku: server）
+- 资源组名称默认 `rg-openclaw`，可通过 deploy.ps1 的 `-ResourceGroup` 参数或交互模式自定义
 
 ### 模块化原则
 
@@ -107,19 +113,20 @@ azure-claw/
 ### `deploy.ps1` 工作流
 
 ```
-用户运行 deploy.ps1 [-Location eastasia] [-VmSize Standard_B2s] [-OsType Ubuntu] [-AdminUsername azureclaw] [-AdminPassword xxx] [-EnablePublicHttps]
+用户运行 deploy.ps1 [-Location eastasia] [-VmSize Standard_B2s] [-OsType Ubuntu] [-AdminUsername azureclaw] [-AdminPassword xxx] [-ResourceGroup rg-openclaw] [-EnablePublicHttps]
     │
     ├─ 1. 参数处理（所有参数有默认值，密码为空则自动生成强密码）
     ├─ 1b. 若 EnablePublicHttps，自动生成 Gateway 密码
     ├─ 2. 检查 az cli 登录状态（未登录则执行 az login）
-    ├─ 3. 创建资源组 rg-openclaw
+    ├─ 3. 创建资源组（默认 rg-openclaw，交互模式可选择/自定义）
     ├─ 4. 执行 az deployment group create（部署 Bicep 模板）
     ├─ 5. 捕获部署输出（Public IP、VM 名称等）
     ├─ 6. 创建 logs/{timestamp}/ 目录
     ├─ 7. 写入 logs/{timestamp}/deploy.log（部署参数脱敏 + 部署过程日志）
     ├─ 8. 写入 logs/{timestamp}/.env（敏感信息：密码、连接串）
     ├─ 9. 生成 logs/{timestamp}/guide.md（操作指南，引用 .env 中的变量）
-    └─ 10. 控制台输出摘要 + 指南路径
+    ├─ 10. 控制台输出摘要 + 指南路径
+    └─ 11. 可选：配置 AI 模型（选择现有资源 / 创建新资源 / 手动输入）
 ```
 
 ### `destroy.ps1` 工作流

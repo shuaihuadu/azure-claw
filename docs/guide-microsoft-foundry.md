@@ -135,22 +135,29 @@ az cognitiveservices account keys list \
 
 ## 五、配置 OpenClaw
 
-SSH 登录到 VM 后（Windows 则在 WSL 中操作），编辑 OpenClaw 配置文件：
+> **推荐**: 如果使用 `deploy.ps1` 部署，部署完成后会自动提示配置 AI 模型，支持三种模式（选择现有资源 / 创建新资源 / 手动输入），无需手动编辑配置文件。也可以在部署后使用 `scripts/setup-foundry-model.ps1` 单独添加模型。
 
-### 方式 A：使用 `openclaw onboard` 交互式配置
+### 方式 A：使用 deploy.ps1 自动配置（推荐）
+
+部署完成后交互模式会提示是否配置 AI 模型，提供三种方式：
+
+1. **选择现有 Azure AI 资源** — 自动获取 endpoint、API key、已部署模型列表
+2. **创建新 Foundry 资源** — 自动创建资源并部署模型
+3. **手动输入** — 提供 endpoint、API key、模型名称
+
+选择后脚本会通过 `az vm run-command` 将配置写入 VM 上的 `~/.openclaw/openclaw.json` 并重启服务。
+
+### 方式 B：使用 `openclaw onboard` 交互式配置
+
+SSH 登录到 VM 后（Windows 则在 WSL 中操作）：
 
 ```bash
 openclaw onboard
 ```
 
-在交互式向导中：
-1. 选择 Model Provider → **Azure OpenAI**
-2. 输入 Endpoint URL
-3. 输入 API Key
-4. 选择部署名称（如 `gpt-4.1`）
-5. 完成配置
+在交互式向导中选择 Azure OpenAI 并按提示输入 endpoint 和 API key。
 
-### 方式 B：手动编辑配置文件
+### 方式 C：手动编辑配置文件
 
 ```bash
 nano ~/.openclaw/openclaw.json
@@ -160,17 +167,27 @@ nano ~/.openclaw/openclaw.json
 
 ```jsonc
 {
-  "agent": {
-    // 格式: azure/<部署名称>
-    "model": "azure/gpt-4.1"
+  "agents": {
+    "defaults": {
+      "model": {
+        // 直接使用部署名称，不需要 "azure/" 前缀
+        "primary": "gpt-4.1"
+      }
+    }
   },
-  "providers": {
-    "azure": {
-      "apiKey": "<你的 Azure OpenAI API Key>",
-      "baseURL": "https://openclaw-aoai.openai.azure.com/openai/deployments/gpt-4.1",
-      "apiVersion": "2024-12-01-preview"
-      // 可选：如果使用 Microsoft Entra ID 认证，设为 true 并省略 apiKey
-      // "useAzureAD": true
+  "models": {
+    "providers": {
+      "azure-openai": {
+        // Endpoint + /openai/v1 后缀
+        "baseUrl": "https://openclaw-aoai.openai.azure.com/openai/v1",
+        "apiKey": "<你的 Azure OpenAI API Key>",
+        "api": "openai-completions",
+        "headers": {
+          "authHeader": "api-key"
+        },
+        // 列出所有可用的部署名称
+        "models": ["gpt-4.1"]
+      }
     }
   }
 }
@@ -178,12 +195,14 @@ nano ~/.openclaw/openclaw.json
 
 **配置说明**：
 
-| 字段                         | 说明                    | 示例                                                      |
-| ---------------------------- | ----------------------- | --------------------------------------------------------- |
-| `agent.model`                | `azure/<部署名称>`      | `azure/gpt-4.1`                                           |
-| `providers.azure.apiKey`     | Azure OpenAI 的 API Key | `CtQcuGGH...`                                             |
-| `providers.azure.baseURL`    | Endpoint + 部署路径     | `https://xxx.openai.azure.com/openai/deployments/gpt-4.1` |
-| `providers.azure.apiVersion` | API 版本                | `2024-12-01-preview`                                      |
+| 字段                                               | 说明                    | 示例                                     |
+| -------------------------------------------------- | ----------------------- | ---------------------------------------- |
+| `agents.defaults.model.primary`                    | 默认模型（部署名称）    | `gpt-4.1`                                |
+| `models.providers.azure-openai.baseUrl`            | Endpoint + `/openai/v1` | `https://xxx.openai.azure.com/openai/v1` |
+| `models.providers.azure-openai.apiKey`             | Azure OpenAI 的 API Key | `CtQcuGGH...`                            |
+| `models.providers.azure-openai.api`                | API 类型                | `openai-completions`                     |
+| `models.providers.azure-openai.headers.authHeader` | 认证头名称              | `api-key`                                |
+| `models.providers.azure-openai.models`             | 可用模型列表            | `["gpt-4.1", "gpt-5.4-mini"]`            |
 
 > **Endpoint 格式说明**: Azure OpenAI 的 Endpoint 有两种格式，注意区分：
 >
@@ -192,7 +211,7 @@ nano ~/.openclaw/openclaw.json
 > | **OpenAI 终结点**（域名） | `https://xxx.openai.azure.com/` | SDK 或直接调用模型 |
 > | **项目终结点**（含 `/api/projects/`） | `https://xxx.services.ai.azure.com/api/projects/...` | Foundry Agent 管理（OpenClaw 不使用） |
 >
-> OpenClaw 使用的是 **OpenAI 终结点** 加上部署路径。如果你在 Microsoft Foundry 门户看到的终结点带 `/openai/v1` 后缀，去掉后缀使用域名部分即可。
+> OpenClaw 配置使用 **OpenAI 终结点** 加上 `/openai/v1` 后缀。如果你在 Microsoft Foundry 门户看到的终结点已经带 `/openai/v1` 后缀，直接使用即可。
 
 ### 重启服务
 
@@ -275,20 +294,30 @@ Azure OpenAI 终结点
 
 ```jsonc
 {
-  "agent": {
-    "model": "azure/gpt-4.1"
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "gpt-4.1"
+      }
+    }
   },
-  "providers": {
-    "azure": {
-      "apiKey": "<Microsoft Foundry 门户复制的 API Key>",
-      "baseURL": "https://<resource>.openai.azure.com/openai/deployments/gpt-4.1",
-      "apiVersion": "2024-12-01-preview"
+  "models": {
+    "providers": {
+      "azure-openai": {
+        "baseUrl": "https://<resource>.openai.azure.com/openai/v1",
+        "apiKey": "<Microsoft Foundry 门户复制的 API Key>",
+        "api": "openai-completions",
+        "headers": {
+          "authHeader": "api-key"
+        },
+        "models": ["gpt-4.1"]
+      }
     }
   }
 }
 ```
 
-> **注意**: Microsoft Foundry 门户显示的 OpenAI 终结点可能带 `/openai/v1` 后缀，OpenClaw 配置时需要改为 `/openai/deployments/<部署名>` 格式。
+> **注意**: Microsoft Foundry 门户显示的 OpenAI 终结点可能已带 `/openai/v1` 后缀，直接使用即可。如果只显示域名（如 `https://xxx.openai.azure.com/`），需要在末尾加上 `/openai/v1`。
 
 ---
 
@@ -343,15 +372,25 @@ az role assignment create \
 
 ```jsonc
 {
-  "agent": {
-    "model": "azure/gpt-4.1"
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "gpt-4.1"
+      }
+    }
   },
-  "providers": {
-    "azure": {
-      "baseURL": "https://openclaw-aoai.openai.azure.com/openai/deployments/gpt-4.1",
-      "apiVersion": "2024-12-01-preview",
-      "useAzureAD": true
-      // 无需 apiKey，VM 的 Managed Identity 自动获取 Token
+  "models": {
+    "providers": {
+      "azure-openai": {
+        "baseUrl": "https://openclaw-aoai.openai.azure.com/openai/v1",
+        "api": "openai-completions",
+        "headers": {
+          "authHeader": "api-key"
+        },
+        "useAzureAD": true,
+        // 无需 apiKey，VM 的 Managed Identity 自动获取 Token
+        "models": ["gpt-4.1"]
+      }
     }
   }
 }
@@ -377,9 +416,8 @@ az role assignment create \
 
 ### Q: 出现 `404 Resource Not Found` 错误
 
-- 检查 `baseURL` 中的**部署名称**是否与实际部署一致
-- 确认 `apiVersion` 使用的是有效版本（推荐 `2024-12-01-preview`）
-- 确认使用的是 **OpenAI 终结点**（`xxx.openai.azure.com`），而非项目终结点（`xxx.services.ai.azure.com/api/projects/...`）
+- 检查 `models` 数组中的模型名称是否与 Azure 上的**部署名称**一致
+- 确认 `baseUrl` 使用的是 **OpenAI 终结点**（`xxx.openai.azure.com`）加 `/openai/v1` 后缀，而非项目终结点（`xxx.services.ai.azure.com/api/projects/...`）
 
 ### Q: 出现 `429 Rate Limit` 错误
 
@@ -388,17 +426,24 @@ az role assignment create \
 
 ### Q: 如何切换模型？
 
-在 Azure OpenAI 中部署新模型后，修改配置文件中的 `model` 和 `baseURL` 中的部署名称即可。例如切换到 GPT-5.4-mini：
+在 Azure OpenAI 中部署新模型后，修改配置文件中的 `agents.defaults.model.primary` 并将新模型名添加到 `models` 数组即可。例如切换到 GPT-5.4-mini：
 
 ```jsonc
 {
-  "agent": {
-    "model": "azure/gpt-5.4-mini"
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "gpt-5.4-mini"
+      }
+    }
   },
-  "providers": {
-    "azure": {
-      "baseURL": "https://openclaw-aoai.openai.azure.com/openai/deployments/gpt-5.4-mini",
-      // ...其余配置不变
+  "models": {
+    "providers": {
+      "azure-openai": {
+        "baseUrl": "https://openclaw-aoai.openai.azure.com/openai/v1",
+        // ...其余配置不变
+        "models": ["gpt-4.1", "gpt-5.4-mini"]
+      }
     }
   }
 }
@@ -410,12 +455,14 @@ Azure OpenAI 按 Token 用量计费，不同模型价格不同。个人轻度使
 
 ### Q: Microsoft Foundry 门户的 OpenAI 终结点带 `/openai/v1`，怎么填？
 
-Microsoft Foundry 门户 Overview 页显示的 OpenAI 终结点可能类似 `https://xxx.openai.azure.com/openai/v1`。配置 OpenClaw 时，需要去掉 `/openai/v1`，改为 `/openai/deployments/<部署名>`：
+Microsoft Foundry 门户 Overview 页显示的 OpenAI 终结点可能类似 `https://xxx.openai.azure.com/openai/v1`。这正好是 OpenClaw 需要的格式，直接使用即可：
 
 ```
 门户显示: https://xxx.openai.azure.com/openai/v1
-OpenClaw: https://xxx.openai.azure.com/openai/deployments/gpt-4.1
+OpenClaw baseUrl: https://xxx.openai.azure.com/openai/v1   ← 直接使用
 ```
+
+如果门户只显示域名（如 `https://xxx.openai.azure.com/`），则需要在末尾加上 `/openai/v1`。
 
 ### Q: 多租户下 Entra ID 认证报 `Token tenant does not match`
 

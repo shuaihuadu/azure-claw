@@ -80,6 +80,9 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 # 自定义参数部署（跳过交互）
 .\deploy.ps1 -Location eastasia -VmSize Standard_B2ms -OsType Ubuntu -AdminUsername azureclaw -AdminPassword "YourP@ssw0rd!"
 
+# 指定资源组名称
+.\deploy.ps1 -ResourceGroup my-rg -Location eastasia
+
 # 部署 Windows 11 VM
 .\deploy.ps1 -OsType Windows
 
@@ -87,7 +90,13 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 .\deploy.ps1 -EnablePublicHttps
 ```
 
-部署完成后，交互模式会提示是否配置 **Microsoft Foundry 模型**（Azure OpenAI），可选择配置或跳过（后续通过 `scripts/setup-foundry-model.ps1` 配置）。
+部署完成后，交互模式会提示配置 **AI 模型**，提供三种方式：
+
+1. **选择现有 Azure AI 资源** — 自动获取 endpoint、API key、已部署模型
+2. **创建新 Foundry 资源** — 自动创建资源并部署模型
+3. **手动输入** — 提供 endpoint、API key、模型名称
+
+也可以跳过，后续通过 `scripts/setup-foundry-model.ps1` 单独配置。
 
 > **提示**: 不带任何参数运行 `.\deploy.ps1` 会进入交互式引导模式，自动查询你的 Azure 订阅中可用的区域和 VM 规格，避免选到不可用的资源。
 
@@ -100,6 +109,7 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 | `-VmSize`            | VM 规格                                 | `Standard_B2s` |
 | `-AdminUsername`     | 管理员用户名                            | `azureclaw`    |
 | `-AdminPassword`     | 管理员密码                              | 自动生成强密码 |
+| `-ResourceGroup`     | Azure 资源组名称                        | `rg-openclaw`  |
 | `-EnablePublicHttps` | 启用公网 HTTPS（Caddy + Let's Encrypt） | 关闭           |
 
 > **Windows 用户注意**: Windows 11 + WSL2 至少需要 8GB 内存，建议使用 `Standard_B2ms` 或更高规格：
@@ -194,6 +204,9 @@ openclaw onboard --install-daemon
 ```powershell
 # 删除所有 Azure 资源（会确认提示）
 .\destroy.ps1
+
+# 指定资源组名称
+.\destroy.ps1 -ResourceGroup my-rg
 
 # 跳过确认直接删除
 .\destroy.ps1 -Force
