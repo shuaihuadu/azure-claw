@@ -238,24 +238,24 @@ if ($isInteractive) {
         Write-Host "    $($i + 1). $($rgOptions[$i])  $($rgDescs[$i])"
     }
 
-    while (`$true) {
-        `$rgInput = Read-Host "  Choice [1]"
-        if ([string]::IsNullOrWhiteSpace(`$rgInput)) { `$rgInput = '1' }
-        `$rgNum = 0
-        if ([int]::TryParse(`$rgInput, [ref]`$rgNum)) {
-            if (`$rgNum -eq 1) {
-                `$ResourceGroup = `$lastRg
+    while ($true) {
+        $rgInput = Read-Host "  Choice [1]"
+        if ([string]::IsNullOrWhiteSpace($rgInput)) { $rgInput = '1' }
+        $rgNum = 0
+        if ([int]::TryParse($rgInput, [ref]$rgNum)) {
+            if ($rgNum -eq 1) {
+                $ResourceGroup = $lastRg
                 break
             }
-            elseif (`$rgNum -ge 2 -and `$rgNum -le `$rgOptions.Count) {
-                `$ResourceGroup = `$rgOptions[`$rgNum - 1]
+            elseif ($rgNum -ge 2 -and $rgNum -le $rgOptions.Count) {
+                $ResourceGroup = $rgOptions[$rgNum - 1]
                 break
             }
-            elseif (`$rgNum -eq `$rgOptions.Count + 1) {
-                while (`$true) {
-                    `$customRg = Read-Host "  Enter resource group name"
-                    if (-not [string]::IsNullOrWhiteSpace(`$customRg) -and `$customRg -match '^[a-zA-Z0-9._-]+$') {
-                        `$ResourceGroup = `$customRg.Trim()
+            elseif ($rgNum -eq $rgOptions.Count + 1) {
+                while ($true) {
+                    $customRg = Read-Host "  Enter resource group name"
+                    if (-not [string]::IsNullOrWhiteSpace($customRg) -and $customRg -match '^[a-zA-Z0-9._-]+$') {
+                        $ResourceGroup = $customRg.Trim()
                         break
                     }
                     Write-Host "  Invalid name. Use letters, numbers, dots, hyphens, underscores." -ForegroundColor Yellow
