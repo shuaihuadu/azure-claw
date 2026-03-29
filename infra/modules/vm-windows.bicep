@@ -32,6 +32,16 @@ param gatewayPassword string = ''
 @description('Fully qualified domain name for HTTPS certificate')
 param fqdn string = ''
 
+@description('Microsoft Foundry endpoint URL (empty = skip Foundry config)')
+param foundryEndpoint string = ''
+
+@description('Microsoft Foundry API key')
+@secure()
+param foundryApiKey string = ''
+
+@description('Comma-separated model deployment names')
+param foundryModels string = ''
+
 // Base64 encode the gateway password to avoid shell escaping issues
 var encodedGatewayPassword = base64(gatewayPassword)
 
@@ -105,18 +115,24 @@ var winWrapperTemplate = '''# Auto-generated wrapper — sets parameters before 
 $EnablePublicHttps = [switch]("__PH_HTTPS__" -eq "true")
 $GatewayPasswordB64 = "__PH_GWPWD__"
 $Fqdn = "__PH_FQDN__"
+$FoundryEndpoint = "__PH_FOUNDRY_EP__"
+$FoundryApiKey = "__PH_FOUNDRY_KEY__"
+$FoundryModels = "__PH_FOUNDRY_MODELS__"
 __PH_SCRIPT__'''
 
 var ww1 = replace(winWrapperTemplate, '__PH_HTTPS__', enablePublicHttps ? 'true' : 'false')
 var ww2 = replace(ww1, '__PH_GWPWD__', encodedGatewayPassword)
 var ww3 = replace(ww2, '__PH_FQDN__', fqdn)
+var ww4 = replace(ww3, '__PH_FOUNDRY_EP__', foundryEndpoint)
+var ww5 = replace(ww4, '__PH_FOUNDRY_KEY__', foundryApiKey)
+var ww6 = replace(ww5, '__PH_FOUNDRY_MODELS__', foundryModels)
 // Remove the original param() block from the script since we set variables directly
 var scriptWithoutParams = replace(
   scriptContent,
   'param(\r\n    [switch]$EnablePublicHttps,\r\n    [string]$GatewayPasswordB64 = \'\',\r\n    [string]$Fqdn = \'\'\r\n)',
   '# (params set by wrapper)'
 )
-var winFullScript = replace(ww3, '__PH_SCRIPT__', scriptWithoutParams)
+var winFullScript = replace(ww6, '__PH_SCRIPT__', scriptWithoutParams)
 
 resource installScript 'Microsoft.Compute/virtualMachines/extensions@2024-07-01' = {
   parent: vm

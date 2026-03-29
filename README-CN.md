@@ -37,6 +37,8 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 
 点击按钮，在 Azure Portal 中填写参数即可。
 
+> **新功能**: 将 **Enable Foundry** 设为 `true`，部署时会自动创建 Azure AI 资源并部署模型（默认: gpt-4.1），无需部署后手动配置。
+
 > **注意**: Deploy to Azure 按钮需要仓库为 **公开仓库**，且已生成 ARM 模板：
 > ```powershell
 > az bicep build --file infra/main.bicep --outfile infra/azuredeploy.json
@@ -203,13 +205,15 @@ azure-claw/
 │   ├── azuredeploy.json             # ARM 模板（由 Bicep 生成，供一键部署）
 │   ├── main.parameters.json         # 参数文件
 │   └── modules/
+│       ├── foundry.bicep            # Azure AI 服务 + 模型部署（可选）
 │       ├── network.bicep            # VNet / NSG / Public IP
 │       ├── vm-ubuntu.bicep          # Ubuntu VM 模块
 │       └── vm-windows.bicep         # Windows VM 模块
 ├── scripts/
 │   ├── install-openclaw-ubuntu.sh   # Ubuntu 安装脚本
 │   ├── install-openclaw-windows.ps1 # Windows 安装脚本
-│   └── setup-foundry-model.ps1      # Microsoft Foundry 模型自动配置脚本
+│   ├── setup-foundry-model.ps1      # 独立 Foundry 模型配置工具
+│   └── shared-functions.ps1         # 共享 PowerShell 辅助函数
 ├── deploy.ps1                       # 部署入口脚本
 ├── destroy.ps1                      # 资源清理脚本
 ├── setup-teams.ps1                  # Teams 通道半自动配置脚本

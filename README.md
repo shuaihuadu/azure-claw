@@ -37,6 +37,8 @@ You also need:
 
 Click the button and fill in the parameters in the Azure Portal.
 
+> **New**: Set **Enable Foundry** to `true` to automatically create an Azure AI resource and deploy a model (default: gpt-4.1) during deployment — no post-deploy configuration needed.
+
 > **Note**: The Deploy to Azure button requires the repository to be **public** and an ARM template to be generated:
 > ```powershell
 > az bicep build --file infra/main.bicep --outfile infra/azuredeploy.json
@@ -203,13 +205,15 @@ azure-claw/
 │   ├── azuredeploy.json             # ARM template (generated from Bicep, for one-click deploy)
 │   ├── main.parameters.json         # Parameter file
 │   └── modules/
+│       ├── foundry.bicep            # Azure AI Services + model deployment (optional)
 │       ├── network.bicep            # VNet / NSG / Public IP
 │       ├── vm-ubuntu.bicep          # Ubuntu VM module
 │       └── vm-windows.bicep         # Windows VM module
 ├── scripts/
 │   ├── install-openclaw-ubuntu.sh   # Ubuntu install script
 │   ├── install-openclaw-windows.ps1 # Windows install script
-│   └── setup-foundry-model.ps1      # Microsoft Foundry model auto-configuration
+│   ├── setup-foundry-model.ps1      # Standalone Foundry model configuration tool
+│   └── shared-functions.ps1         # Shared PowerShell helper functions
 ├── deploy.ps1                       # Deployment entry script
 ├── destroy.ps1                      # Resource cleanup script
 ├── setup-teams.ps1                  # Teams channel semi-automated setup

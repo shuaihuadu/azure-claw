@@ -72,6 +72,9 @@ $configContent = @"
 EnablePublicHttps=$($EnablePublicHttps.ToString())
 GatewayPassword=$GatewayPassword
 Fqdn=$Fqdn
+FoundryEndpoint=$FoundryEndpoint
+FoundryApiKey=$FoundryApiKey
+FoundryModels=$FoundryModels
 "@
 Set-Content -Path "$openclawDir\config.txt" -Value $configContent -Encoding UTF8
 
@@ -102,7 +105,10 @@ Get-Content "C:\openclaw\config.txt" | ForEach-Object {
 $enableHttps = $config['EnablePublicHttps'] -eq 'True'
 $gwPassword = $config['GatewayPassword']
 $fqdn = $config['Fqdn']
-Log "Config: EnablePublicHttps=$enableHttps, Fqdn=$fqdn"
+$foundryEndpoint = $config['FoundryEndpoint']
+$foundryApiKey = $config['FoundryApiKey']
+$foundryModels = $config['FoundryModels']
+Log "Config: EnablePublicHttps=$enableHttps, Fqdn=$fqdn, Foundry=$([bool]$foundryEndpoint)"
 
 # Wait for WSL to be ready
 $maxRetries = 30
@@ -142,8 +148,13 @@ Log "OpenClaw installed"
 # Create config (idempotent: always overwrite with correct config)
 # Use PowerShell hashtable → JSON for safe handling of special characters in password
 Log "Creating OpenClaw configuration..."
+$defaultModel = "anthropic/claude-opus-4-6"
+if ($foundryEndpoint -and $foundryModels) {
+    $firstModel = ($foundryModels -split ',')[0].Trim()
+    $defaultModel = "azure-openai/$firstModel"
+}
 $configObj = @{
-    agents = @{ defaults = @{ model = @{ primary = "anthropic/claude-opus-4-6" } } }
+    agents = @{ defaults = @{ model = @{ primary = $defaultModel } } }
     gateway = @{ mode = "local" }
 }
 if ($enableHttps -and $fqdn) {
@@ -152,6 +163,29 @@ if ($enableHttps -and $fqdn) {
 }
 if ($gwPassword) {
     $configObj.gateway.remote = @{ password = $gwPassword }
+}
+if ($foundryEndpoint -and $foundryApiKey -and $foundryModels) {
+    $modelList = $foundryModels -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+    $modelEntries = @()
+    $defaultsModels = @{}
+    foreach ($mid in $modelList) {
+        $modelEntries += @{
+            id = $mid; name = $mid; reasoning = $false
+            input = @("text"); cost = @{ input = 0; output = 0; cacheRead = 0; cacheWrite = 0 }
+            contextWindow = 131072; maxTokens = 16384
+        }
+        $defaultsModels["azure-openai/$mid"] = @{}
+    }
+    $configObj.models = @{
+        providers = @{
+            "azure-openai" = @{
+                baseUrl = $foundryEndpoint; apiKey = $foundryApiKey
+                api = "openai-completions"; headers = @{ "api-key" = $foundryApiKey }
+                authHeader = $false; models = $modelEntries
+            }
+        }
+    }
+    $configObj.agents.defaults.models = $defaultsModels
 }
 $configJson = $configObj | ConvertTo-Json -Depth 5
 wsl -d Ubuntu -u $wslUser -- bash -c "mkdir -p ~/.openclaw && cat > ~/.openclaw/openclaw.json << 'HEREDOC'

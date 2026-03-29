@@ -30,13 +30,15 @@ azure-claw/
 │   ├── main.parameters.json         # 默认参数
 │   ├── azuredeploy.json             # 导出的 ARM 模板
 │   └── modules/
+│       ├── foundry.bicep            # Azure AI 服务 + 模型部署（可选）
 │       ├── network.bicep            # VNet, Subnet, NSG, Public IP
 │       ├── vm-ubuntu.bicep          # Ubuntu VM + NIC + CustomScript
 │       └── vm-windows.bicep         # Windows VM + NIC + CustomScriptExtension
 ├── scripts/
 │   ├── install-openclaw-ubuntu.sh   # Ubuntu: Node.js + OpenClaw + systemd
 │   ├── install-openclaw-windows.ps1 # Windows: WSL2 + Node.js + OpenClaw
-│   └── setup-foundry-model.ps1     # 独立脚本：添加 Foundry 模型到 VM
+│   ├── setup-foundry-model.ps1     # 独立工具：发现 VM + 3 模式配置 Foundry 模型
+│   └── shared-functions.ps1        # 共享辅助函数（模型知识库、交互选择等）
 ├── deploy.ps1                       # 部署入口脚本
 ├── destroy.ps1                      # 资源清理脚本
 ├── setup-teams.ps1                  # Teams 通道半自动配置脚本
@@ -71,6 +73,8 @@ azure-claw/
 | `adminPassword`     | securestring          | 否   | 自动生成       | 管理员密码（password 认证）                  |
 | `enablePublicHttps` | bool                  | 否   | `false`        | 启用公网 HTTPS（Caddy + Let's Encrypt）      |
 | `gatewayPassword`   | securestring          | 否   | 自动生成       | Gateway 认证密码（enablePublicHttps 时使用） |
+| `enableFoundry`     | bool                  | 否   | `false`        | 自动创建 Azure AI 资源并部署模型             |
+| `foundryModelName`  | string                | 否   | `gpt-4.1`      | 部署的模型名称（enableFoundry 时使用）       |
 
 - VM 名称固定为 `openclaw-vm`，不作为用户参数
 - SSH 认证方式固定为 password，不暴露 authenticationType 参数
@@ -79,10 +83,11 @@ azure-claw/
 
 ### 模块化原则
 
+- `foundry.bicep`：条件创建 Azure AI Services 账户 + 模型部署，输出 endpoint 和 API key
 - `network.bicep`：创建 VNet、Subnet、NSG（入站规则）、Public IP，输出子网 ID 和公网 IP ID
 - `vm-ubuntu.bicep`：创建 Ubuntu VM + NIC，通过 CustomScript 扩展执行安装脚本
 - `vm-windows.bicep`：创建 Windows 11 VM + NIC，通过 CustomScriptExtension 执行安装脚本
-- `main.bicep`：调用 network 模块，根据 `osType` 条件部署对应 VM 模块
+- `main.bicep`：调用 network 模块，条件调用 foundry 模块，根据 `osType` 条件部署对应 VM 模块
 
 ### Bicep 输出
 

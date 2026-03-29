@@ -29,6 +29,12 @@ param enablePublicHttps bool = false
 @secure()
 param gatewayPassword string = ''
 
+@description('Enable automatic Microsoft Foundry (Azure AI) resource creation and model deployment')
+param enableFoundry bool = false
+
+@description('Model to deploy when enableFoundry is true')
+param foundryModelName string = 'gpt-4.1'
+
 // --- Install Scripts ---
 // Embed scripts at build time so VMs don't need to download from GitHub
 var ubuntuScriptContent = loadTextContent('../scripts/install-openclaw-ubuntu.sh')
@@ -42,6 +48,16 @@ module network 'modules/network.bicep' = {
     location: location
     osType: osType
     enablePublicHttps: enablePublicHttps
+  }
+}
+
+// --- Foundry Module (optional) ---
+
+module foundry 'modules/foundry.bicep' = if (enableFoundry) {
+  name: 'foundry'
+  params: {
+    location: location
+    modelName: foundryModelName
   }
 }
 
@@ -60,6 +76,11 @@ module vmUbuntu 'modules/vm-ubuntu.bicep' = if (osType == 'Ubuntu') {
     enablePublicHttps: enablePublicHttps
     gatewayPassword: gatewayPassword
     fqdn: network.outputs.fqdn
+    #disable-next-line BCP318
+    foundryEndpoint: enableFoundry ? foundry.outputs.endpoint : ''
+    #disable-next-line BCP318
+    foundryApiKey: enableFoundry ? foundry.outputs.apiKey : ''
+    foundryModels: enableFoundry ? foundryModelName : ''
   }
 }
 
@@ -78,6 +99,11 @@ module vmWindows 'modules/vm-windows.bicep' = if (osType == 'Windows') {
     enablePublicHttps: enablePublicHttps
     gatewayPassword: gatewayPassword
     fqdn: network.outputs.fqdn
+    #disable-next-line BCP318
+    foundryEndpoint: enableFoundry ? foundry.outputs.endpoint : ''
+    #disable-next-line BCP318
+    foundryApiKey: enableFoundry ? foundry.outputs.apiKey : ''
+    foundryModels: enableFoundry ? foundryModelName : ''
   }
 }
 
