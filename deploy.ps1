@@ -233,10 +233,10 @@ if ($isInteractive) {
         }
     }
     # Add custom option
-    Write-Host "    $($rgOptions.Count + 1). Enter custom name"
     for ($i = 1; $i -lt $rgOptions.Count; $i++) {
         Write-Host "    $($i + 1). $($rgOptions[$i])  $($rgDescs[$i])"
     }
+    Write-Host "    $($rgOptions.Count + 1). Enter custom name"
 
     while ($true) {
         $rgInput = Read-Host "  Choice [1]"
@@ -321,7 +321,7 @@ if ($isInteractive) {
     $osDefault = if ((Get-LastValue 'OsType') -eq 'Windows') { 2 } else { 1 }
     $OsType = Read-Choice -Prompt "[4/7] Select operating system:" `
         -Options @('Ubuntu', 'Windows') `
-        -Descriptions @('22.04 LTS (recommended, 4GB+ RAM)', '11 via WSL2 (requires 8GB+ RAM)') `
+        -Descriptions @('24.04 LTS (recommended, 4GB+ RAM)', '11 via WSL2 (requires 8GB+ RAM)') `
         -Default $osDefault
     Write-Log "Selected OS: $OsType" 'INFO'
 
