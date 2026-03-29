@@ -48,11 +48,11 @@ User Devices (WhatsApp / Telegram / Discord / Slack / ...)
 
 Install the following tools on your local machine:
 
-| Tool                | Purpose                | Install Guide                                                                                                                 |
-| ------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Azure CLI**       | Deploy Azure resources | [Install Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)                                                  |
+| Tool                | Purpose                    | Install Guide                                                                                                                          |
+| ------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Azure CLI**       | Deploy Azure resources     | [Install Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)                                                           |
 | **PowerShell 7+**   | Run deploy/destroy scripts | [Install PowerShell](https://learn.microsoft.com/powershell/scripting/install/installing-powershell) (Windows built-in 5.1 also works) |
-| **Azure Bicep CLI** | Compile Bicep templates | Installed automatically with Azure CLI, or `az bicep install`                                                                |
+| **Azure Bicep CLI** | Compile Bicep templates    | Installed automatically with Azure CLI, or `az bicep install`                                                                          |
 
 You also need:
 
@@ -104,15 +104,15 @@ You can skip this step and configure later using `scripts/setup-foundry-model.ps
 
 Deployment parameters:
 
-| Parameter            | Description                              | Default        |
-| -------------------- | ---------------------------------------- | -------------- |
-| `-Location`          | Azure region                             | `eastasia`     |
-| `-OsType`            | Operating system (`Ubuntu` / `Windows`)  | `Ubuntu`       |
-| `-VmSize`            | VM size                                  | `Standard_B2s` |
-| `-AdminUsername`     | Admin username                           | `azureclaw`    |
-| `-AdminPassword`     | Admin password                           | Auto-generated |
-| `-ResourceGroup`     | Azure resource group name                | `rg-openclaw`  |
-| `-EnablePublicHttps` | Enable public HTTPS (Caddy + Let's Encrypt) | Disabled   |
+| Parameter            | Description                                 | Default        |
+| -------------------- | ------------------------------------------- | -------------- |
+| `-Location`          | Azure region                                | `eastasia`     |
+| `-OsType`            | Operating system (`Ubuntu` / `Windows`)     | `Ubuntu`       |
+| `-VmSize`            | VM size                                     | `Standard_B2s` |
+| `-AdminUsername`     | Admin username                              | `azureclaw`    |
+| `-AdminPassword`     | Admin password                              | Auto-generated |
+| `-ResourceGroup`     | Azure resource group name                   | `rg-openclaw`  |
+| `-EnablePublicHttps` | Enable public HTTPS (Caddy + Let's Encrypt) | Disabled       |
 
 > **Windows users**: Windows 11 + WSL2 requires at least 8 GB RAM. Use `Standard_B2ms` or higher:
 > ```powershell
@@ -254,11 +254,11 @@ azure-claw/
 
 ## Recommended VM Sizes
 
-| Scenario    | Recommended VM Size | vCPU | RAM   | Notes                                    |
-| ----------- | ------------------- | ---- | ----- | ---------------------------------------- |
-| Light use   | Standard_B2s        | 2    | 4 GB  | Basic Gateway + 1-2 channels (Ubuntu only) |
-| Daily use   | Standard_B2ms       | 2    | 8 GB  | Multi-channel + Browser tools            |
-| Heavy use   | Standard_B4ms       | 4    | 16 GB | Multi-agent + Browser + Sandbox          |
+| Scenario  | Recommended VM Size | vCPU | RAM   | Notes                                      |
+| --------- | ------------------- | ---- | ----- | ------------------------------------------ |
+| Light use | Standard_B2s        | 2    | 4 GB  | Basic Gateway + 1-2 channels (Ubuntu only) |
+| Daily use | Standard_B2ms       | 2    | 8 GB  | Multi-channel + Browser tools              |
+| Heavy use | Standard_B4ms       | 4    | 16 GB | Multi-agent + Browser + Sandbox            |
 
 ## Security
 
