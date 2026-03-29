@@ -39,6 +39,7 @@ azure-claw/
 │   └── setup-foundry-model.ps1     # 独立脚本：添加 Foundry 模型到 VM
 ├── deploy.ps1                       # 部署入口脚本
 ├── destroy.ps1                      # 资源清理脚本
+├── setup-teams.ps1                  # Teams 通道半自动配置脚本
 ├── azure.yaml                       # azd 项目描述文件
 ├── .gitignore                       # 忽略 logs/ 等
 ├── logs/                            # 部署产物（git ignored）
@@ -177,7 +178,7 @@ Ubuntu 版本：
 
 - 部署时间: 2026-03-20 14:30:52
 - 公网 IP: 20.xxx.xxx.xxx
-- 操作系统: Ubuntu 22.04 LTS
+- 操作系统: Ubuntu 24.04 LTS
 - VM 规格: Standard_B2s
 - 资源组: rg-openclaw
 
@@ -270,9 +271,13 @@ set -euo pipefail
 
 ```jsonc
 {
-  "agent": {
-    "model": "anthropic/claude-opus-4-6",
-  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "anthropic/claude-opus-4-6"
+      }
+    }
+  }
 }
 ```
 
@@ -280,7 +285,7 @@ set -euo pipefail
 
 ```bash
 openclaw onboard --install-daemon  # 交互式设置 + 安装守护进程
-openclaw gateway --port 18789      # 启动 Gateway
+openclaw gateway run --port 18789  # 启动 Gateway
 openclaw doctor                    # 诊断检查
 openclaw dashboard                 # 打开 Web UI
 ```
@@ -296,10 +301,11 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=<admin_user>
-ExecStart=/usr/bin/openclaw gateway --port 18789
-Restart=on-failure
+ExecStart=/usr/bin/openclaw gateway run --port 18789 --bind lan --auth password
+Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
+Environment=OPENCLAW_GATEWAY_PASSWORD=<gateway_password>
 
 [Install]
 WantedBy=multi-user.target
