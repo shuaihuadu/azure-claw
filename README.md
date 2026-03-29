@@ -15,35 +15,6 @@ OpenClaw is a self-hosted AI assistant gateway that connects messaging apps like
 - **Agent-native**: Supports tool calling, session management, memory, and multi-agent routing
 - **Open source**: MIT licensed, community-driven
 
-## Architecture
-
-```
-User Devices (WhatsApp / Telegram / Discord / Slack / ...)
-                    │
-                    ▼
-    ┌───────────────────────────────┐
-    │     Azure Virtual Machine     │
-    │  (Ubuntu 24.04 / Windows 11)  │
-    │                               │
-    │  ┌─────────────────────────┐  │
-    │  │  Caddy (:443 HTTPS)     │  │  ← Enabled with -EnablePublicHttps
-    │  │  Let's Encrypt auto-TLS │  │
-    │  └────────────┬────────────┘  │
-    │               │               │
-    │  ┌────────────┴────────────┐  │
-    │  │    OpenClaw Gateway     │  │
-    │  │   ws://127.0.0.1:18789  │  │
-    │  └────────────┬────────────┘  │
-    │               │               │
-    │    ┌──────────┼──────────┐    │
-    │    │          │          │    │
-    │  Pi Agent   WebChat   CLI    │
-    │  (RPC)       UI              │
-    └───────────────────────────────┘
-                    │
-              Azure NSG (443/HTTPS or 18789)
-```
-
 ## Prerequisites
 
 Install the following tools on your local machine:
