@@ -1,6 +1,5 @@
 # 🦞 Azure Claw — One-Click Deploy OpenClaw to Azure VM
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fshuaihuadu%2Fazure-claw%2Fmain%2Finfra%2Fazuredeploy.json)
 
 [中文文档](README-CN.md)
 
@@ -34,7 +33,9 @@ You also need:
 
 ### Option 1: One-Click Deploy (Azure Portal)
 
-Click the **Deploy to Azure** button above and fill in the parameters in the Azure Portal.
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fshuaihuadu%2Fazure-claw%2Fmain%2Finfra%2Fazuredeploy.json)
+
+Click the button and fill in the parameters in the Azure Portal.
 
 > **Note**: The Deploy to Azure button requires the repository to be **public** and an ARM template to be generated:
 > ```powershell

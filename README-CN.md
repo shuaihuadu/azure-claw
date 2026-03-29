@@ -1,6 +1,5 @@
 # 🦞 Azure Claw — 一键部署 OpenClaw 到 Azure VM
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fshuaihuadu%2Fazure-claw%2Fmain%2Finfra%2Fazuredeploy.json)
 
 [English](README.md)
 
@@ -34,7 +33,9 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 
 ### 方式一：一键部署（Azure Portal）
 
-点击上方 **Deploy to Azure** 按钮，在 Azure Portal 中填写参数即可。
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fshuaihuadu%2Fazure-claw%2Fmain%2Finfra%2Fazuredeploy.json)
+
+点击按钮，在 Azure Portal 中填写参数即可。
 
 > **注意**: Deploy to Azure 按钮需要仓库为 **公开仓库**，且已生成 ARM 模板：
 > ```powershell
