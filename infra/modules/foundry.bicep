@@ -38,7 +38,6 @@ resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-
     model: {
       format: 'OpenAI'
       name: modelName
-      version: '*'
     }
   }
 }
