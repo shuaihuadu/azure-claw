@@ -219,3 +219,57 @@ function Normalize-FoundryEndpoint {
     }
     return $Endpoint
 }
+
+# ============================================================
+# Purge Soft-Deleted AI Services
+# ============================================================
+
+function Purge-SoftDeletedAIResource {
+    <#
+    .SYNOPSIS
+        Find and purge soft-deleted Cognitive Services accounts whose name starts with a given prefix.
+        Returns $true if at least one resource was purged.
+    #>
+    param(
+        [string]$NamePrefix = 'openclaw-ai-',
+        [string]$LogFunc = 'Write-Log'
+    )
+
+    $deleted = az cognitiveservices account list-deleted --output json 2>&1 | ConvertFrom-Json
+    if (-not $deleted -or $deleted.Count -eq 0) { return $false }
+
+    $matched = $deleted | Where-Object {
+        $_.properties.resourceName -like "${NamePrefix}*" -or $_.name -like "${NamePrefix}*"
+    }
+    if (-not $matched -or @($matched).Count -eq 0) { return $false }
+
+    $purged = $false
+    foreach ($item in @($matched)) {
+        $resName = if ($item.properties.resourceName) { $item.properties.resourceName } else { $item.name }
+        $resLocation = if ($item.properties.location) { $item.properties.location } else { $item.location }
+        $resGroup = if ($item.properties.resourceGroup) { $item.properties.resourceGroup } else { '' }
+
+        if (-not $resName -or -not $resLocation) { continue }
+
+        & $LogFunc "Purging soft-deleted AI resource '$resName' in '$resLocation'..." 'INFO'
+        try {
+            if ($resGroup) {
+                az cognitiveservices account purge --name $resName --resource-group $resGroup --location $resLocation 2>&1 | Out-Null
+            }
+            else {
+                az cognitiveservices account purge --name $resName --location $resLocation 2>&1 | Out-Null
+            }
+            if ($LASTEXITCODE -eq 0) {
+                & $LogFunc "Purged '$resName' successfully." 'INFO'
+                $purged = $true
+            }
+            else {
+                & $LogFunc "Failed to purge '$resName' (exit code $LASTEXITCODE). Manual purge may be needed." 'WARN'
+            }
+        }
+        catch {
+            & $LogFunc "Error purging '$resName': $_" 'WARN'
+        }
+    }
+    return $purged
+}

@@ -544,6 +544,16 @@ Write-Log 'Resource group ready.' 'INFO'
 
 # --- Deploy Bicep template ---
 
+# If Foundry is enabled, purge any soft-deleted AI resources to avoid subdomain conflicts
+if ($EnableFoundry) {
+    Write-Log 'Checking for soft-deleted AI Services that may conflict...' 'STEP'
+    $purged = Purge-SoftDeletedAIResource -NamePrefix 'openclaw-ai-'
+    if ($purged) {
+        Write-Log 'Soft-deleted AI resource(s) purged. Waiting 10 seconds for propagation...' 'INFO'
+        Start-Sleep -Seconds 10
+    }
+}
+
 Write-Log 'Deploying Bicep template (this may take several minutes)...' 'STEP'
 
 # Pause transcript to prevent passwords from leaking into deploy.log

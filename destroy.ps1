@@ -16,6 +16,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Load shared functions
+. "$PSScriptRoot/scripts/shared-functions.ps1"
+
 function Write-Log {
     param([string]$Message, [string]$Level = 'INFO')
     $ts = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
@@ -56,4 +59,12 @@ if (-not $Force) {
 Write-Log "Deleting resource group '$ResourceGroup'..."
 az group delete --name $ResourceGroup --yes --no-wait
 Write-Log "Deletion initiated. The resource group will be removed in the background."
+
+# Purge soft-deleted AI Services to prevent subdomain conflicts on re-deploy
+Write-Log "Checking for soft-deleted AI Services resources to purge..."
+$purged = Purge-SoftDeletedAIResource -NamePrefix 'openclaw-ai-'
+if (-not $purged) {
+    Write-Log "No soft-deleted AI resources found (or none matching 'openclaw-ai-*')." 'INFO'
+}
+
 Write-Host "[INFO] You can check status with: az group show --name $ResourceGroup"
