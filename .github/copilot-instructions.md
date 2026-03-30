@@ -71,7 +71,7 @@ azure-claw/
 | `vmSize`            | string                | 否   | `Standard_B2s` | VM 规格                                      |
 | `adminUsername`     | string                | 否   | `azureclaw`    | 管理员用户名                                 |
 | `adminPassword`     | securestring          | 否   | 自动生成       | 管理员密码（password 认证）                  |
-| `enablePublicHttps` | bool                  | 否   | `false`        | 启用公网 HTTPS（Caddy + Let's Encrypt）      |
+| `enablePublicHttps` | bool                  | 否   | `true`         | 启用公网 HTTPS（Caddy + Let's Encrypt）      |
 | `gatewayPassword`   | securestring          | 否   | 自动生成       | Gateway 认证密码（enablePublicHttps 时使用） |
 | `enableFoundry`     | bool                  | 否   | `false`        | 自动创建 Azure AI 资源并部署模型             |
 | `foundryModelName`  | string                | 否   | `gpt-4.1`      | 部署的模型名称（enableFoundry 时使用）       |
@@ -279,10 +279,10 @@ set -euo pipefail
   "agents": {
     "defaults": {
       "model": {
-        "primary": "anthropic/claude-opus-4-6"
-      }
-    }
-  }
+        "primary": "anthropic/claude-opus-4-6",
+      },
+    },
+  },
 }
 ```
 

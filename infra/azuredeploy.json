@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "4951346885904472067"
+      "templateHash": "2817946494198451270"
     }
   },
   "parameters": {
@@ -49,7 +49,7 @@
     },
     "enablePublicHttps": {
       "type": "bool",
-      "defaultValue": false,
+      "defaultValue": true,
       "metadata": {
         "description": "Enable public HTTPS access via Caddy + Let's Encrypt (uses Azure VM DNS name)"
       }
@@ -108,7 +108,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "10412141972104163192"
+              "templateHash": "5161850017192524008"
             }
           },
           "parameters": {
@@ -130,7 +130,7 @@
             },
             "enablePublicHttps": {
               "type": "bool",
-              "defaultValue": false,
+              "defaultValue": true,
               "metadata": {
                 "description": "Enable public HTTPS access via Caddy reverse proxy"
               }
@@ -430,7 +430,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "4157822859589858331"
+              "templateHash": "88636411531042622"
             }
           },
           "parameters": {
@@ -478,7 +478,7 @@
             },
             "enablePublicHttps": {
               "type": "bool",
-              "defaultValue": false,
+              "defaultValue": true,
               "metadata": {
                 "description": "Enable public HTTPS access"
               }
@@ -682,7 +682,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "8373131282451828752"
+              "templateHash": "348063105487425448"
             }
           },
           "parameters": {
@@ -730,7 +730,7 @@
             },
             "enablePublicHttps": {
               "type": "bool",
-              "defaultValue": false,
+              "defaultValue": true,
               "metadata": {
                 "description": "Enable public HTTPS access"
               }

@@ -23,7 +23,7 @@ param adminUsername string = 'azureclaw'
 param adminPassword string
 
 @description('Enable public HTTPS access via Caddy + Let\'s Encrypt (uses Azure VM DNS name)')
-param enablePublicHttps bool = false
+param enablePublicHttps bool = true
 
 @description('Gateway password for authentication (required when enablePublicHttps is true)')
 @secure()

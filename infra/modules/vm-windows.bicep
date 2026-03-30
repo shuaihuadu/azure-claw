@@ -23,7 +23,7 @@ param publicIpId string
 param scriptContent string
 
 @description('Enable public HTTPS access')
-param enablePublicHttps bool = false
+param enablePublicHttps bool = true
 
 @description('Gateway password for authentication')
 @secure()

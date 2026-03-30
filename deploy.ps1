@@ -122,8 +122,11 @@ function Get-LastValue {
 # Determine if running in interactive mode
 # ============================================================
 # Interactive mode when no meaningful parameters are provided
-$isInteractive = ($PSBoundParameters.Count -eq 0) -or
-($PSBoundParameters.Count -eq 1 -and $PSBoundParameters.ContainsKey('EnablePublicHttps') -and -not $EnablePublicHttps)
+# Default: HTTPS enabled unless explicitly disabled via -EnablePublicHttps:$false
+if (-not $PSBoundParameters.ContainsKey('EnablePublicHttps')) {
+    $EnablePublicHttps = $true
+}
+$isInteractive = ($PSBoundParameters.Count -eq 0)
 
 # ============================================================
 # Step 0: Ensure Azure CLI login
@@ -384,13 +387,13 @@ if ($isInteractive) {
     Write-Host "[7/7] Enable public HTTPS? (Caddy + Let's Encrypt auto-certificate)"
     Write-Host "  This adds password-protected HTTPS access via the Azure VM domain name."
     $lastHttps = (Get-LastValue 'EnablePublicHttps') -eq 'true'
-    $httpsDefault = if ($lastHttps) { 'Y' } else { 'N' }
-    $httpsInput = Read-Host "  Enable? (y/N) [$httpsDefault]"
+    $httpsDefault = if ($lastHttps -eq $false -and (Get-LastValue 'EnablePublicHttps') -ne $null) { 'N' } else { 'Y' }
+    $httpsInput = Read-Host "  Enable? (Y/n) [$httpsDefault]"
     if ([string]::IsNullOrWhiteSpace($httpsInput)) {
-        $EnablePublicHttps = $lastHttps
+        $EnablePublicHttps = ($httpsDefault -eq 'Y')
     }
     else {
-        $EnablePublicHttps = ($httpsInput -eq 'y' -or $httpsInput -eq 'Y')
+        $EnablePublicHttps = ($httpsInput -ne 'n' -and $httpsInput -ne 'N')
     }
 
     # --- Summary and confirm ---

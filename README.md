@@ -86,7 +86,7 @@ Deployment parameters:
 | `-AdminUsername`     | Admin username                              | `azureclaw`    |
 | `-AdminPassword`     | Admin password                              | Auto-generated |
 | `-ResourceGroup`     | Azure resource group name                   | `rg-openclaw`  |
-| `-EnablePublicHttps` | Enable public HTTPS (Caddy + Let's Encrypt) | Disabled       |
+| `-EnablePublicHttps` | Public HTTPS (Caddy + Let's Encrypt)         | **Enabled**    |
 
 > **Windows users**: Windows 11 + WSL2 requires at least 8 GB RAM. Use `Standard_B2ms` or higher:
 > ```powershell

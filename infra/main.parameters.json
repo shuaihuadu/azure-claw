@@ -15,7 +15,7 @@
             "value": "azureclaw"
         },
         "enablePublicHttps": {
-            "value": false
+            "value": true
         }
     }
 }

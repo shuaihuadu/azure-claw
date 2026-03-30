@@ -11,7 +11,7 @@ param location string
 param osType string
 
 @description('Enable public HTTPS access via Caddy reverse proxy')
-param enablePublicHttps bool = false
+param enablePublicHttps bool = true
 
 // --- Network Security Group ---
 

@@ -86,7 +86,7 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 | `-AdminUsername`     | 管理员用户名                            | `azureclaw`    |
 | `-AdminPassword`     | 管理员密码                              | 自动生成强密码 |
 | `-ResourceGroup`     | Azure 资源组名称                        | `rg-openclaw`  |
-| `-EnablePublicHttps` | 启用公网 HTTPS（Caddy + Let's Encrypt） | 关闭           |
+| `-EnablePublicHttps` | 公网 HTTPS（Caddy + Let's Encrypt）      | **开启**       |
 
 > **Windows 用户注意**: Windows 11 + WSL2 至少需要 8GB 内存，建议使用 `Standard_B2ms` 或更高规格：
 > ```powershell
