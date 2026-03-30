@@ -78,15 +78,15 @@ You can skip this step and configure later using `scripts/setup-foundry-model.ps
 
 Deployment parameters:
 
-| Parameter            | Description                             | Default        |
-| -------------------- | --------------------------------------- | -------------- |
-| `-Location`          | Azure region                            | `eastasia`     |
-| `-OsType`            | Operating system (`Ubuntu` / `Windows`) | `Ubuntu`       |
+| Parameter            | Description                             | Default             |
+| -------------------- | --------------------------------------- | ------------------- |
+| `-Location`          | Azure region                            | `eastasia`          |
+| `-OsType`            | Operating system (`Ubuntu` / `Windows`) | `Ubuntu`            |
 | `-VmSize`            | VM size                                 | `Standard_B2als_v2` |
-| `-AdminUsername`     | Admin username                          | `azureclaw`    |
-| `-AdminPassword`     | Admin password                          | Auto-generated |
-| `-ResourceGroup`     | Azure resource group name               | `rg-openclaw`  |
-| `-EnablePublicHttps` | Public HTTPS (Caddy + Let's Encrypt)    | **Enabled**    |
+| `-AdminUsername`     | Admin username                          | `azureclaw`         |
+| `-AdminPassword`     | Admin password                          | Auto-generated      |
+| `-ResourceGroup`     | Azure resource group name               | `rg-openclaw`       |
+| `-EnablePublicHttps` | Public HTTPS (Caddy + Let's Encrypt)    | **Enabled**         |
 
 > **Windows users**: Windows 11 + WSL2 requires at least 8 GB RAM. Use `Standard_B2as_v2` or higher:
 > ```powershell

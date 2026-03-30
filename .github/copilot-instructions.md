@@ -71,18 +71,18 @@ azure-claw/
 
 主模板 `main.bicep` 必须暴露以下参数：
 
-| 参数                | 类型                  | 必填 | 默认值         | 说明                                         |
-| ------------------- | --------------------- | ---- | -------------- | -------------------------------------------- |
-| `location`          | string                | 否   | 资源组位置     | 部署区域                                     |
-| `osType`            | 'Ubuntu' \| 'Windows' | 否   | `Ubuntu`       | 操作系统类型                                 |
+| 参数                | 类型                  | 必填 | 默认值              | 说明                                         |
+| ------------------- | --------------------- | ---- | ------------------- | -------------------------------------------- |
+| `location`          | string                | 否   | 资源组位置          | 部署区域                                     |
+| `osType`            | 'Ubuntu' \| 'Windows' | 否   | `Ubuntu`            | 操作系统类型                                 |
 | `vmSize`            | string                | 否   | `Standard_B2als_v2` | VM 规格                                      |
-| `adminUsername`     | string                | 否   | `azureclaw`    | 管理员用户名                                 |
-| `adminPassword`     | securestring          | 否   | 自动生成       | 管理员密码（password 认证）                  |
-| `enablePublicHttps` | bool                  | 否   | `true`         | 启用公网 HTTPS（Caddy + Let's Encrypt）      |
-| `gatewayPassword`   | securestring          | 否   | 自动生成       | Gateway 认证密码（enablePublicHttps 时使用） |
-| `enableFoundry`     | bool                  | 否   | `false`        | 自动创建 Azure AI 资源并部署模型             |
-| `foundryModelName`  | string                | 否   | `gpt-4.1`      | 部署的模型名称（enableFoundry 时使用）       |
-| `foundryLocation`   | string                | 否   | `eastus`       | Foundry 资源区域（非所有区域都支持所有模型） |
+| `adminUsername`     | string                | 否   | `azureclaw`         | 管理员用户名                                 |
+| `adminPassword`     | securestring          | 否   | 自动生成            | 管理员密码（password 认证）                  |
+| `enablePublicHttps` | bool                  | 否   | `true`              | 启用公网 HTTPS（Caddy + Let's Encrypt）      |
+| `gatewayPassword`   | securestring          | 否   | 自动生成            | Gateway 认证密码（enablePublicHttps 时使用） |
+| `enableFoundry`     | bool                  | 否   | `false`             | 自动创建 Azure AI 资源并部署模型             |
+| `foundryModelName`  | string                | 否   | `gpt-4.1`           | 部署的模型名称（enableFoundry 时使用）       |
+| `foundryLocation`   | string                | 否   | `eastus`            | Foundry 资源区域（非所有区域都支持所有模型） |
 
 - VM 名称固定为 `openclaw-vm`，不作为用户参数
 - SSH 认证方式固定为 password，不暴露 authenticationType 参数
