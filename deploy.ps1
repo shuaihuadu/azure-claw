@@ -7,7 +7,7 @@
     Azure region. Default: eastasia
 
 .PARAMETER VmSize
-    VM size SKU. Default: Standard_B2s
+    VM size SKU. Default: Standard_B2als_v2
 
 .PARAMETER OsType
     Operating system: Ubuntu or Windows. Default: Ubuntu
@@ -312,10 +312,10 @@ if ($isInteractive) {
 
     # Recommended sizes matching the OS choice
     if ($OsType -eq 'Windows') {
-        $recommendedSizes = @('Standard_B2ms', 'Standard_B4ms', 'Standard_D2s_v5', 'Standard_D4s_v5')
+        $recommendedSizes = @('Standard_B2as_v2', 'Standard_B4as_v2', 'Standard_D2s_v5', 'Standard_D4s_v5')
     }
     else {
-        $recommendedSizes = @('Standard_B2s', 'Standard_B2ms', 'Standard_B4ms', 'Standard_D2s_v5')
+        $recommendedSizes = @('Standard_B2als_v2', 'Standard_B2as_v2', 'Standard_B4as_v2', 'Standard_D2s_v5')
     }
 
     # Query actually available sizes in the region
@@ -461,7 +461,7 @@ else {
     Write-Log 'Non-interactive mode: applying defaults for unset parameters.' 'INFO'
     if ([string]::IsNullOrEmpty($Location)) { $Location = Get-LastValue 'Location' 'eastasia' }
     if ([string]::IsNullOrEmpty($OsType)) { $OsType = Get-LastValue 'OsType' 'Ubuntu' }
-    if ([string]::IsNullOrEmpty($VmSize)) { $VmSize = Get-LastValue 'VmSize' 'Standard_B2s' }
+    if ([string]::IsNullOrEmpty($VmSize)) { $VmSize = Get-LastValue 'VmSize' 'Standard_B2als_v2' }
     if ([string]::IsNullOrEmpty($ResourceGroup)) { $ResourceGroup = Get-LastValue 'ResourceGroup' 'rg-openclaw' }
     if ([string]::IsNullOrEmpty($AdminUsername)) { $AdminUsername = Get-LastValue 'AdminUsername' 'azureclaw' }
     if ([string]::IsNullOrEmpty($FoundryModelName)) { $FoundryModelName = Get-LastValue 'FoundryModelName' 'gpt-4.1' }

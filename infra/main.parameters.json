@@ -9,7 +9,7 @@
             "value": "Ubuntu"
         },
         "vmSize": {
-            "value": "Standard_B2s"
+            "value": "Standard_B2als_v2"
         },
         "adminUsername": {
             "value": "azureclaw"

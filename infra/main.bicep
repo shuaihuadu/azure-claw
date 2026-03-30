@@ -13,7 +13,7 @@ param location string = resourceGroup().location
 param osType string = 'Ubuntu'
 
 @description('VM size SKU')
-param vmSize string = 'Standard_B2s'
+param vmSize string = 'Standard_B2als_v2'
 
 @description('Admin username')
 param adminUsername string = 'azureclaw'

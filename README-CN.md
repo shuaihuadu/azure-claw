@@ -54,7 +54,7 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 .\deploy.ps1
 
 # 自定义参数部署（跳过交互）
-.\deploy.ps1 -Location eastasia -VmSize Standard_B2ms -OsType Ubuntu -AdminUsername azureclaw -AdminPassword "YourP@ssw0rd!"
+.\.deploy.ps1 -Location eastasia -VmSize Standard_B2as_v2 -OsType Ubuntu -AdminUsername azureclaw -AdminPassword "YourP@ssw0rd!"
 
 # 指定资源组名称
 .\deploy.ps1 -ResourceGroup my-rg -Location eastasia
@@ -82,15 +82,15 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 | -------------------- | ----------------------------------- | -------------- |
 | `-Location`          | Azure 区域                          | `eastasia`     |
 | `-OsType`            | 操作系统 (`Ubuntu` / `Windows`)     | `Ubuntu`       |
-| `-VmSize`            | VM 规格                             | `Standard_B2s` |
+| `-VmSize`            | VM 规格                             | `Standard_B2als_v2` |
 | `-AdminUsername`     | 管理员用户名                        | `azureclaw`    |
 | `-AdminPassword`     | 管理员密码                          | 自动生成强密码 |
 | `-ResourceGroup`     | Azure 资源组名称                    | `rg-openclaw`  |
 | `-EnablePublicHttps` | 公网 HTTPS（Caddy + Let's Encrypt） | **开启**       |
 
-> **Windows 用户注意**: Windows 11 + WSL2 至少需要 8GB 内存，建议使用 `Standard_B2ms` 或更高规格：
+> **Windows 用户注意**: Windows 11 + WSL2 至少需要 8GB 内存，建议使用 `Standard_B2as_v2` 或更高规格：
 > ```powershell
-> .\deploy.ps1 -OsType Windows -VmSize Standard_B2ms
+> .\deploy.ps1 -OsType Windows -VmSize Standard_B2as_v2
 > ```
 
 > 所有参数都有默认值，直接运行 `.\deploy.ps1` 即可。
@@ -239,9 +239,9 @@ azure-claw/
 
 | 场景         | 推荐 VM 规格  | vCPU | 内存  | 说明                                   |
 | ------------ | ------------- | ---- | ----- | -------------------------------------- |
-| 个人轻度使用 | Standard_B2s  | 2    | 4 GB  | 基础 Gateway + 1-2 个通道（仅 Ubuntu） |
-| 日常使用     | Standard_B2ms | 2    | 8 GB  | 多通道 + Browser 工具                  |
-| 重度使用     | Standard_B4ms | 4    | 16 GB | 多代理 + Browser + 沙箱                |
+| 个人轻度使用 | Standard_B2als_v2 | 2    | 4 GB  | 基础 Gateway + 1-2 个通道（仅 Ubuntu） |
+| 日常使用     | Standard_B2as_v2  | 2    | 8 GB  | 多通道 + Browser 工具                  |
+| 重度使用     | Standard_B4as_v2  | 4    | 16 GB | 多代理 + Browser + 沙箱                |
 
 ## 安全注意事项
 

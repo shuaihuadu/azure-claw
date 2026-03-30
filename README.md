@@ -54,7 +54,7 @@ Click the button and fill in the parameters in the Azure Portal.
 .\deploy.ps1
 
 # Custom parameter deployment (skip interactive prompts)
-.\deploy.ps1 -Location eastasia -VmSize Standard_B2ms -OsType Ubuntu -AdminUsername azureclaw -AdminPassword "YourP@ssw0rd!"
+.\.deploy.ps1 -Location eastasia -VmSize Standard_B2as_v2 -OsType Ubuntu -AdminUsername azureclaw -AdminPassword "YourP@ssw0rd!"
 
 # Specify resource group name
 .\deploy.ps1 -ResourceGroup my-rg -Location eastasia
@@ -82,15 +82,15 @@ Deployment parameters:
 | -------------------- | --------------------------------------- | -------------- |
 | `-Location`          | Azure region                            | `eastasia`     |
 | `-OsType`            | Operating system (`Ubuntu` / `Windows`) | `Ubuntu`       |
-| `-VmSize`            | VM size                                 | `Standard_B2s` |
+| `-VmSize`            | VM size                                 | `Standard_B2als_v2` |
 | `-AdminUsername`     | Admin username                          | `azureclaw`    |
 | `-AdminPassword`     | Admin password                          | Auto-generated |
 | `-ResourceGroup`     | Azure resource group name               | `rg-openclaw`  |
 | `-EnablePublicHttps` | Public HTTPS (Caddy + Let's Encrypt)    | **Enabled**    |
 
-> **Windows users**: Windows 11 + WSL2 requires at least 8 GB RAM. Use `Standard_B2ms` or higher:
+> **Windows users**: Windows 11 + WSL2 requires at least 8 GB RAM. Use `Standard_B2as_v2` or higher:
 > ```powershell
-> .\deploy.ps1 -OsType Windows -VmSize Standard_B2ms
+> .\deploy.ps1 -OsType Windows -VmSize Standard_B2as_v2
 > ```
 
 > All parameters have default values — just run `.\deploy.ps1` to get started.
@@ -239,9 +239,9 @@ azure-claw/
 
 | Scenario  | Recommended VM Size | vCPU | RAM   | Notes                                      |
 | --------- | ------------------- | ---- | ----- | ------------------------------------------ |
-| Light use | Standard_B2s        | 2    | 4 GB  | Basic Gateway + 1-2 channels (Ubuntu only) |
-| Daily use | Standard_B2ms       | 2    | 8 GB  | Multi-channel + Browser tools              |
-| Heavy use | Standard_B4ms       | 4    | 16 GB | Multi-agent + Browser + Sandbox            |
+| Light use | Standard_B2als_v2   | 2    | 4 GB  | Basic Gateway + 1-2 channels (Ubuntu only) |
+| Daily use | Standard_B2as_v2    | 2    | 8 GB  | Multi-channel + Browser tools              |
+| Heavy use | Standard_B4as_v2    | 4    | 16 GB | Multi-agent + Browser + Sandbox            |
 
 ## Security
 

@@ -75,7 +75,7 @@ azure-claw/
 | ------------------- | --------------------- | ---- | -------------- | -------------------------------------------- |
 | `location`          | string                | 否   | 资源组位置     | 部署区域                                     |
 | `osType`            | 'Ubuntu' \| 'Windows' | 否   | `Ubuntu`       | 操作系统类型                                 |
-| `vmSize`            | string                | 否   | `Standard_B2s` | VM 规格                                      |
+| `vmSize`            | string                | 否   | `Standard_B2als_v2` | VM 规格                                      |
 | `adminUsername`     | string                | 否   | `azureclaw`    | 管理员用户名                                 |
 | `adminPassword`     | securestring          | 否   | 自动生成       | 管理员密码（password 认证）                  |
 | `enablePublicHttps` | bool                  | 否   | `true`         | 启用公网 HTTPS（Caddy + Let's Encrypt）      |
@@ -127,7 +127,7 @@ azure-claw/
 ### `deploy.ps1` 工作流
 
 ```
-用户运行 deploy.ps1 [-Location eastasia] [-VmSize Standard_B2s] [-OsType Ubuntu] [-AdminUsername azureclaw] [-AdminPassword xxx] [-ResourceGroup rg-openclaw] [-EnablePublicHttps]
+用户运行 deploy.ps1 [-Location eastasia] [-VmSize Standard_B2als_v2] [-OsType Ubuntu] [-AdminUsername azureclaw] [-AdminPassword xxx] [-ResourceGroup rg-openclaw] [-EnablePublicHttps]
     │
     ├─ 1. 参数处理（所有参数有默认值，密码为空则自动生成强密码）
     ├─ 1b. 若 EnablePublicHttps，自动生成 Gateway 密码
@@ -172,7 +172,7 @@ ADMIN_PASSWORD=<实际密码>
 VM_PUBLIC_IP=20.xxx.xxx.xxx
 FQDN=openclaw-xxxx.eastasia.cloudapp.azure.com
 OS_TYPE=Ubuntu
-VM_SIZE=Standard_B2s
+VM_SIZE=Standard_B2als_v2
 LOCATION=eastasia
 RESOURCE_GROUP=rg-openclaw
 ENABLE_PUBLIC_HTTPS=true
@@ -192,7 +192,7 @@ Ubuntu 版本：
 - 部署时间: 2026-03-20 14:30:52
 - 公网 IP: 20.xxx.xxx.xxx
 - 操作系统: Ubuntu 24.04 LTS
-- VM 规格: Standard_B2s
+- VM 规格: Standard_B2als_v2
 - 资源组: rg-openclaw
 
 > 敏感信息（用户名/密码）保存在同目录下的 `.env` 文件中。
