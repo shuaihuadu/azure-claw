@@ -24,6 +24,12 @@
 .PARAMETER EnablePublicHttps
     Enable public HTTPS access via Caddy + Let's Encrypt. Default: off.
 
+.PARAMETER EnableFoundry
+    Automatically create Azure AI (Microsoft Foundry) resource and deploy a model during Bicep deployment.
+
+.PARAMETER FoundryModelName
+    Model name to deploy when EnableFoundry is set. Default: gpt-4.1
+
 .EXAMPLE
     .\deploy.ps1
     # Interactive guided setup
@@ -41,7 +47,9 @@ param(
     [string]$AdminUsername = '',
     [string]$AdminPassword = '',
     [string]$ResourceGroup = '',
-    [switch]$EnablePublicHttps
+    [switch]$EnablePublicHttps,
+    [switch]$EnableFoundry,
+    [string]$FoundryModelName = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -171,7 +179,7 @@ if ($isInteractive) {
     else {
         $subNames = $subscriptions | ForEach-Object { $_.name }
         $subDescs = $subscriptions | ForEach-Object { "($($_.id.Substring(0, 8))...)" }
-        $selectedSubName = Read-Choice -Prompt "[1/7] Select Azure subscription:" `
+        $selectedSubName = Read-Choice -Prompt "[1/8] Select Azure subscription:" `
             -Options $subNames -Descriptions $subDescs -Default 1
         $selectedSub = $subscriptions | Where-Object { $_.name -eq $selectedSubName } | Select-Object -First 1
     }
@@ -188,7 +196,7 @@ if ($isInteractive) {
     $existingRgs = az group list --query "[].{name:name, location:location}" --output json | ConvertFrom-Json
 
     $lastRg = Get-LastValue 'ResourceGroup' 'rg-openclaw'
-    Write-Host "[2/7] Resource group:"
+    Write-Host "[2/8] Resource group:"
     Write-Host "    1. Create new (or reuse '$lastRg')"
 
     $rgOptions = @($lastRg)
@@ -270,12 +278,12 @@ if ($isInteractive) {
                 }
             }
         }
-        $Location = Read-Choice -Prompt "[3/7] Select Azure region:" `
+        $Location = Read-Choice -Prompt "[3/8] Select Azure region:" `
             -Options $regionNames -Descriptions $regionDescs -Default $regionDefault -AllowCustom
     }
     else {
         $allRegionNames = ($regions | Sort-Object name | ForEach-Object { $_.name })
-        Write-Host "[3/7] No preferred regions available. Enter a region name."
+        Write-Host "[3/8] No preferred regions available. Enter a region name."
         Write-Host "  Available: $($allRegionNames -join ', ')"
         while ($true) {
             $Location = (Read-Host "  Region").Trim()
@@ -287,7 +295,7 @@ if ($isInteractive) {
 
     # --- Select OS type ---
     $osDefault = if ((Get-LastValue 'OsType') -eq 'Windows') { 2 } else { 1 }
-    $OsType = Read-Choice -Prompt "[4/7] Select operating system:" `
+    $OsType = Read-Choice -Prompt "[4/8] Select operating system:" `
         -Options @('Ubuntu', 'Windows') `
         -Descriptions @('24.04 LTS (recommended, 4GB+ RAM)', '11 via WSL2 (requires 8GB+ RAM)') `
         -Default $osDefault
@@ -341,7 +349,7 @@ if ($isInteractive) {
             $idx = [array]::IndexOf($sizeNames, $lastVmSize)
             if ($idx -ge 0) { $sizeDefault = $idx + 1 }
         }
-        $VmSize = Read-Choice -Prompt "[5/7] Select VM size:" `
+        $VmSize = Read-Choice -Prompt "[5/8] Select VM size:" `
             -Options $sizeNames -Descriptions $sizeDescs -Default $sizeDefault -AllowCustom
     }
     else {
@@ -372,7 +380,7 @@ if ($isInteractive) {
     # --- Admin credentials ---
     Write-Host ""
     $lastUser = Get-LastValue 'AdminUsername' 'azureclaw'
-    $inputUser = Read-Host "[6/7] Admin username [$lastUser]"
+    $inputUser = Read-Host "[6/8] Admin username [$lastUser]"
     $AdminUsername = if ([string]::IsNullOrWhiteSpace($inputUser)) { $lastUser } else { $inputUser.Trim() }
 
     $secPw = Read-Host "  Password (leave empty to auto-generate)" -AsSecureString
@@ -384,7 +392,7 @@ if ($isInteractive) {
 
     # --- Enable HTTPS ---
     Write-Host ""
-    Write-Host "[7/7] Enable public HTTPS? (Caddy + Let's Encrypt auto-certificate)"
+    Write-Host "[7/8] Enable public HTTPS? (Caddy + Let's Encrypt auto-certificate)"
     Write-Host "  This adds password-protected HTTPS access via the Azure VM domain name."
     $lastHttps = (Get-LastValue 'EnablePublicHttps') -eq 'true'
     $httpsDefault = if ($lastHttps -eq $false -and (Get-LastValue 'EnablePublicHttps') -ne $null) { 'N' } else { 'Y' }
@@ -394,6 +402,27 @@ if ($isInteractive) {
     }
     else {
         $EnablePublicHttps = ($httpsInput -ne 'n' -and $httpsInput -ne 'N')
+    }
+
+    # --- Enable Foundry ---
+    Write-Host ""
+    Write-Host "[8/8] Auto-create Microsoft Foundry (Azure AI) resource?"
+    Write-Host "  This provisions an Azure AI Services resource and deploys a model during deployment."
+    Write-Host "  You can also configure models manually after deployment."
+    $lastFoundry = (Get-LastValue 'EnableFoundry') -eq 'true'
+    $foundryDefault = if ($lastFoundry) { 'Y' } else { 'N' }
+    $foundryInput = Read-Host "  Enable? (y/N) [$foundryDefault]"
+    if ([string]::IsNullOrWhiteSpace($foundryInput)) {
+        $EnableFoundry = ($foundryDefault -eq 'Y')
+    }
+    else {
+        $EnableFoundry = ($foundryInput -eq 'y' -or $foundryInput -eq 'Y')
+    }
+
+    if ($EnableFoundry) {
+        $lastModel = Get-LastValue 'FoundryModelName' 'gpt-4.1'
+        $modelInput = Read-Host "  Model name [$lastModel]"
+        $FoundryModelName = if ([string]::IsNullOrWhiteSpace($modelInput)) { $lastModel } else { $modelInput.Trim() }
     }
 
     # --- Summary and confirm ---
@@ -408,6 +437,7 @@ if ($isInteractive) {
     Write-Host "  Admin Username : $AdminUsername"
     Write-Host "  Admin Password : $(if ([string]::IsNullOrEmpty($AdminPassword)) { '(auto-generate)' } else { '********' })"
     Write-Host "  Public HTTPS   : $EnablePublicHttps"
+    Write-Host "  Enable Foundry : $EnableFoundry$(if ($EnableFoundry) { " (model: $FoundryModelName)" })"
     Write-Host "  Resource Group : $ResourceGroup"
     Write-Host "=========================================="
     Write-Host ""
@@ -424,6 +454,7 @@ else {
     if ([string]::IsNullOrEmpty($VmSize)) { $VmSize = Get-LastValue 'VmSize' 'Standard_B2s' }
     if ([string]::IsNullOrEmpty($ResourceGroup)) { $ResourceGroup = Get-LastValue 'ResourceGroup' 'rg-openclaw' }
     if ([string]::IsNullOrEmpty($AdminUsername)) { $AdminUsername = Get-LastValue 'AdminUsername' 'azureclaw' }
+    if ([string]::IsNullOrEmpty($FoundryModelName)) { $FoundryModelName = Get-LastValue 'FoundryModelName' 'gpt-4.1' }
 }
 
 # ============================================================
@@ -436,6 +467,8 @@ $saveData = [PSCustomObject]@{
     AdminUsername     = $AdminUsername
     ResourceGroup     = $ResourceGroup
     EnablePublicHttps = $EnablePublicHttps.ToString().ToLower()
+    EnableFoundry     = $EnableFoundry.ToString().ToLower()
+    FoundryModelName  = $FoundryModelName
     SavedAt           = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ss')
 }
 try {
@@ -467,6 +500,7 @@ Write-Host "  OS Type        : $OsType"
 Write-Host "  VM Size        : $VmSize"
 Write-Host "  Admin Username : $AdminUsername"
 Write-Host "  Public HTTPS   : $EnablePublicHttps"
+Write-Host "  Enable Foundry : $EnableFoundry$(if ($EnableFoundry) { " (model: $FoundryModelName)" })"
 Write-Host "  Resource Group : $ResourceGroup"
 Write-Host "=========================================="
 Write-Host ""
@@ -514,6 +548,8 @@ $deploymentResult = az deployment group create `
     adminPassword=$AdminPassword `
     enablePublicHttps=$($EnablePublicHttps.ToString().ToLower()) `
     gatewayPassword=$GatewayPassword `
+    enableFoundry=$($EnableFoundry.ToString().ToLower()) `
+    foundryModelName=$(if ($EnableFoundry -and $FoundryModelName) { $FoundryModelName } else { 'gpt-4.1' }) `
     --output json | ConvertFrom-Json
 
 # Resume transcript (safe — no more secrets in command output)
@@ -815,7 +851,14 @@ Write-Host ""
 
 $configureFoundry = $false
 
-if ($isInteractive) {
+if ($EnableFoundry) {
+    Write-Host ""
+    Write-Host "  [INFO] Foundry resource and model '$FoundryModelName' were provisioned during Bicep deployment." -ForegroundColor Green
+    Write-Host "  The install script has auto-configured OpenClaw with the deployed model." -ForegroundColor Green
+    Write-Host "  To add more models later, run: scripts/setup-foundry-model.ps1" -ForegroundColor Gray
+    $configureFoundry = $true
+}
+elseif ($isInteractive) {
     Write-Host ""
     Write-Host "=========================================="
     Write-Host "  AI Model Configuration"

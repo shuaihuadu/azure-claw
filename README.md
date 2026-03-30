@@ -37,7 +37,7 @@ You also need:
 
 Click the button and fill in the parameters in the Azure Portal.
 
-> **New**: Set **Enable Foundry** to `true` to automatically create an Azure AI resource and deploy a model (default: gpt-4.1) during deployment — no post-deploy configuration needed.
+> Set **Enable Foundry** to `true` to automatically create an Azure AI resource and deploy a model (default: gpt-4.1) during deployment — no post-deploy configuration needed. To configure Foundry models for OpenClaw, see [Configure Microsoft Foundry Models](docs/guide-microsoft-foundry.md).
 
 > **Note**: The Deploy to Azure button requires the repository to be **public** and an ARM template to be generated:
 > ```powershell
@@ -78,15 +78,15 @@ You can skip this step and configure later using `scripts/setup-foundry-model.ps
 
 Deployment parameters:
 
-| Parameter            | Description                                 | Default        |
-| -------------------- | ------------------------------------------- | -------------- |
-| `-Location`          | Azure region                                | `eastasia`     |
-| `-OsType`            | Operating system (`Ubuntu` / `Windows`)     | `Ubuntu`       |
-| `-VmSize`            | VM size                                     | `Standard_B2s` |
-| `-AdminUsername`     | Admin username                              | `azureclaw`    |
-| `-AdminPassword`     | Admin password                              | Auto-generated |
-| `-ResourceGroup`     | Azure resource group name                   | `rg-openclaw`  |
-| `-EnablePublicHttps` | Public HTTPS (Caddy + Let's Encrypt)         | **Enabled**    |
+| Parameter            | Description                             | Default        |
+| -------------------- | --------------------------------------- | -------------- |
+| `-Location`          | Azure region                            | `eastasia`     |
+| `-OsType`            | Operating system (`Ubuntu` / `Windows`) | `Ubuntu`       |
+| `-VmSize`            | VM size                                 | `Standard_B2s` |
+| `-AdminUsername`     | Admin username                          | `azureclaw`    |
+| `-AdminPassword`     | Admin password                          | Auto-generated |
+| `-ResourceGroup`     | Azure resource group name               | `rg-openclaw`  |
+| `-EnablePublicHttps` | Public HTTPS (Caddy + Let's Encrypt)    | **Enabled**    |
 
 > **Windows users**: Windows 11 + WSL2 requires at least 8 GB RAM. Use `Standard_B2ms` or higher:
 > ```powershell
@@ -242,7 +242,7 @@ azure-claw/
 - Use `-EnablePublicHttps` to enable Caddy reverse proxy + Let's Encrypt auto HTTPS certificates for encrypted transport
 - In HTTPS mode, Gateway binds to loopback only; only Caddy can access it; NSG opens port 443
 - In non-HTTPS mode, NSG opens SSH (22) / RDP (3389) and Gateway (18789) ports; passwords are transmitted in cleartext over HTTP
-- **Recommended**: Enable `-EnablePublicHttps` in production, or access Gateway via Tailscale / VPN to avoid cleartext password transmission
+- **Recommended**: Enable `-EnablePublicHttps` in production, or access Gateway via VPN to avoid cleartext password transmission
 - Sensitive information (passwords, Gateway password, etc.) is only saved in `logs/<timestamp>/.env` and is never committed to Git
 - Run `openclaw doctor` periodically to check security configuration
 - See the OpenClaw [Security Guide](https://docs.openclaw.ai/gateway/security)

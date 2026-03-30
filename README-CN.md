@@ -37,7 +37,7 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 
 点击按钮，在 Azure Portal 中填写参数即可。
 
-> **新功能**: 将 **Enable Foundry** 设为 `true`，部署时会自动创建 Azure AI 资源并部署模型（默认: gpt-4.1），无需部署后手动配置。
+> 将 **Enable Foundry** 设为 `true`，部署时会自动创建 Azure AI 资源并部署模型（默认: gpt-4.1），无需部署后手动配置。如需将 Foundry 配置到 OpenClaw，请参阅 [配置 Microsoft Foundry 模型](docs/guide-microsoft-foundry.md)。
 
 > **注意**: Deploy to Azure 按钮需要仓库为 **公开仓库**，且已生成 ARM 模板：
 > ```powershell
@@ -78,15 +78,15 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 
 部署参数说明：
 
-| 参数                 | 说明                                    | 默认值         |
-| -------------------- | --------------------------------------- | -------------- |
-| `-Location`          | Azure 区域                              | `eastasia`     |
-| `-OsType`            | 操作系统 (`Ubuntu` / `Windows`)         | `Ubuntu`       |
-| `-VmSize`            | VM 规格                                 | `Standard_B2s` |
-| `-AdminUsername`     | 管理员用户名                            | `azureclaw`    |
-| `-AdminPassword`     | 管理员密码                              | 自动生成强密码 |
-| `-ResourceGroup`     | Azure 资源组名称                        | `rg-openclaw`  |
-| `-EnablePublicHttps` | 公网 HTTPS（Caddy + Let's Encrypt）      | **开启**       |
+| 参数                 | 说明                                | 默认值         |
+| -------------------- | ----------------------------------- | -------------- |
+| `-Location`          | Azure 区域                          | `eastasia`     |
+| `-OsType`            | 操作系统 (`Ubuntu` / `Windows`)     | `Ubuntu`       |
+| `-VmSize`            | VM 规格                             | `Standard_B2s` |
+| `-AdminUsername`     | 管理员用户名                        | `azureclaw`    |
+| `-AdminPassword`     | 管理员密码                          | 自动生成强密码 |
+| `-ResourceGroup`     | Azure 资源组名称                    | `rg-openclaw`  |
+| `-EnablePublicHttps` | 公网 HTTPS（Caddy + Let's Encrypt） | **开启**       |
 
 > **Windows 用户注意**: Windows 11 + WSL2 至少需要 8GB 内存，建议使用 `Standard_B2ms` 或更高规格：
 > ```powershell
@@ -242,7 +242,7 @@ azure-claw/
 - 使用 `-EnablePublicHttps` 可进一步启用 Caddy 反向代理 + Let's Encrypt 自动 HTTPS 证书，加密传输层
 - HTTPS 模式下，Gateway 绑定 loopback，仅 Caddy 可访问，NSG 开放 443 端口
 - 非 HTTPS 模式下，NSG 开放 SSH (22) / RDP (3389) 和 Gateway (18789) 端口，密码通过 HTTP 明文传输
-- **建议** 在生产环境启用 `-EnablePublicHttps`，或通过 Tailscale / VPN 访问 Gateway，避免密码明文传输
+- **建议** 在生产环境启用 `-EnablePublicHttps`，或通过 VPN 访问 Gateway，避免密码明文传输
 - 敏感信息（密码、Gateway 密码等）仅保存在 `logs/<timestamp>/.env`，不会提交到 Git
 - 定期运行 `openclaw doctor` 检查安全配置
 - 参考 OpenClaw [安全指南](https://docs.openclaw.ai/gateway/security)
