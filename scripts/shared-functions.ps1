@@ -231,44 +231,62 @@ function Purge-SoftDeletedAIResource {
         Returns $true if at least one resource was purged.
     #>
     param(
-        [string]$NamePrefix = 'openclaw-ai-',
-        [string]$LogFunc = 'Write-Log'
+        [string]$NamePrefix = 'openclaw-ai-'
     )
 
-    $deleted = az cognitiveservices account list-deleted --output json 2>&1 | ConvertFrom-Json
-    if (-not $deleted -or $deleted.Count -eq 0) { return $false }
+    # Use --query to filter server-side and get a flat list with the fields we need
+    $deletedJson = az cognitiveservices account list-deleted `
+        --query "[?starts_with(name, '$NamePrefix') || starts_with(properties.resourceName || '', '$NamePrefix')]" `
+        --output json 2>&1
 
-    $matched = $deleted | Where-Object {
-        $_.properties.resourceName -like "${NamePrefix}*" -or $_.name -like "${NamePrefix}*"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[WARN] Failed to list soft-deleted AI resources: $deletedJson" -ForegroundColor Yellow
+        return $false
     }
-    if (-not $matched -or @($matched).Count -eq 0) { return $false }
+
+    $deleted = $deletedJson | ConvertFrom-Json
+    if (-not $deleted -or @($deleted).Count -eq 0) { return $false }
 
     $purged = $false
-    foreach ($item in @($matched)) {
-        $resName = if ($item.properties.resourceName) { $item.properties.resourceName } else { $item.name }
-        $resLocation = if ($item.properties.location) { $item.properties.location } else { $item.location }
-        $resGroup = if ($item.properties.resourceGroup) { $item.properties.resourceGroup } else { '' }
-
-        if (-not $resName -or -not $resLocation) { continue }
-
-        & $LogFunc "Purging soft-deleted AI resource '$resName' in '$resLocation'..." 'INFO'
-        try {
-            if ($resGroup) {
-                az cognitiveservices account purge --name $resName --resource-group $resGroup --location $resLocation 2>&1 | Out-Null
-            }
-            else {
-                az cognitiveservices account purge --name $resName --location $resLocation 2>&1 | Out-Null
-            }
-            if ($LASTEXITCODE -eq 0) {
-                & $LogFunc "Purged '$resName' successfully." 'INFO'
-                $purged = $true
-            }
-            else {
-                & $LogFunc "Failed to purge '$resName' (exit code $LASTEXITCODE). Manual purge may be needed." 'WARN'
-            }
+    foreach ($item in @($deleted)) {
+        # Extract resource name — try multiple property paths
+        $resName = $null
+        if ($item.name) { $resName = $item.name }
+        if (-not $resName -and $item.properties -and $item.properties.resourceName) {
+            $resName = $item.properties.resourceName
         }
-        catch {
-            & $LogFunc "Error purging '$resName': $_" 'WARN'
+        if (-not $resName) { continue }
+
+        # Extract location
+        $resLocation = $null
+        if ($item.location) { $resLocation = $item.location }
+        if (-not $resLocation -and $item.properties -and $item.properties.location) {
+            $resLocation = $item.properties.location
+        }
+        if (-not $resLocation) { continue }
+
+        # Extract resource group — try properties, then parse from ID
+        $resGroup = $null
+        if ($item.properties -and $item.properties.resourceGroup) {
+            $resGroup = $item.properties.resourceGroup
+        }
+        if (-not $resGroup -and $item.id -and $item.id -match '/resourceGroups/([^/]+)') {
+            $resGroup = $Matches[1]
+        }
+        if (-not $resGroup) { continue }
+
+        Write-Host "[INFO] Purging soft-deleted AI resource '$resName' (location: $resLocation, RG: $resGroup)..."
+        $purgeOutput = az cognitiveservices account purge `
+            --name $resName `
+            --resource-group $resGroup `
+            --location $resLocation 2>&1
+
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "[INFO] Purged '$resName' successfully."
+            $purged = $true
+        }
+        else {
+            Write-Host "[WARN] Failed to purge '$resName': $purgeOutput" -ForegroundColor Yellow
         }
     }
     return $purged
