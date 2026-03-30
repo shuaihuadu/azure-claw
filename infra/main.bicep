@@ -35,6 +35,9 @@ param enableFoundry bool = false
 @description('Model to deploy when enableFoundry is true')
 param foundryModelName string = 'gpt-4.1'
 
+@description('Azure region for Foundry (AI Services) resource. Not all regions support all models; eastus has the broadest model availability. The VM and AI resource do not need to be in the same region when using GlobalStandard SKU.')
+param foundryLocation string = 'eastus'
+
 // --- Install Scripts ---
 // Embed scripts at build time so VMs don't need to download from GitHub
 var ubuntuScriptContent = loadTextContent('../scripts/install-openclaw-ubuntu.sh')
@@ -56,7 +59,7 @@ module network 'modules/network.bicep' = {
 module foundry 'modules/foundry.bicep' = if (enableFoundry) {
   name: 'foundry'
   params: {
-    location: location
+    location: foundryLocation
     modelName: foundryModelName
   }
 }

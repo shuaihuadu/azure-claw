@@ -30,6 +30,10 @@
 .PARAMETER FoundryModelName
     Model name to deploy when EnableFoundry is set. Default: gpt-4.1
 
+.PARAMETER FoundryLocation
+    Azure region for the Foundry (AI Services) resource. Not all regions support all models.
+    Default: eastus (broadest model availability). The VM and AI resource do not need to be co-located.
+
 .EXAMPLE
     .\deploy.ps1
     # Interactive guided setup
@@ -49,7 +53,8 @@ param(
     [string]$ResourceGroup = '',
     [switch]$EnablePublicHttps,
     [switch]$EnableFoundry,
-    [string]$FoundryModelName = ''
+    [string]$FoundryModelName = '',
+    [string]$FoundryLocation = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -423,6 +428,11 @@ if ($isInteractive) {
         $lastModel = Get-LastValue 'FoundryModelName' 'gpt-4.1'
         $modelInput = Read-Host "  Model name [$lastModel]"
         $FoundryModelName = if ([string]::IsNullOrWhiteSpace($modelInput)) { $lastModel } else { $modelInput.Trim() }
+
+        $lastFoundryLoc = Get-LastValue 'FoundryLocation' 'eastus'
+        Write-Host "  AI resource region (not all regions support all models; eastus recommended)"
+        $foundryLocInput = Read-Host "  Foundry location [$lastFoundryLoc]"
+        $FoundryLocation = if ([string]::IsNullOrWhiteSpace($foundryLocInput)) { $lastFoundryLoc } else { $foundryLocInput.Trim() }
     }
 
     # --- Summary and confirm ---
@@ -437,7 +447,7 @@ if ($isInteractive) {
     Write-Host "  Admin Username : $AdminUsername"
     Write-Host "  Admin Password : $(if ([string]::IsNullOrEmpty($AdminPassword)) { '(auto-generate)' } else { '********' })"
     Write-Host "  Public HTTPS   : $EnablePublicHttps"
-    Write-Host "  Enable Foundry : $EnableFoundry$(if ($EnableFoundry) { " (model: $FoundryModelName)" })"
+    Write-Host "  Enable Foundry : $EnableFoundry$(if ($EnableFoundry) { " (model: $FoundryModelName, region: $FoundryLocation)" })"
     Write-Host "  Resource Group : $ResourceGroup"
     Write-Host "=========================================="
     Write-Host ""
@@ -455,6 +465,7 @@ else {
     if ([string]::IsNullOrEmpty($ResourceGroup)) { $ResourceGroup = Get-LastValue 'ResourceGroup' 'rg-openclaw' }
     if ([string]::IsNullOrEmpty($AdminUsername)) { $AdminUsername = Get-LastValue 'AdminUsername' 'azureclaw' }
     if ([string]::IsNullOrEmpty($FoundryModelName)) { $FoundryModelName = Get-LastValue 'FoundryModelName' 'gpt-4.1' }
+    if ([string]::IsNullOrEmpty($FoundryLocation)) { $FoundryLocation = Get-LastValue 'FoundryLocation' 'eastus' }
 }
 
 # ============================================================
@@ -469,6 +480,7 @@ $saveData = [PSCustomObject]@{
     EnablePublicHttps = $EnablePublicHttps.ToString().ToLower()
     EnableFoundry     = $EnableFoundry.ToString().ToLower()
     FoundryModelName  = $FoundryModelName
+    FoundryLocation   = $FoundryLocation
     SavedAt           = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ss')
 }
 try {
@@ -500,7 +512,7 @@ Write-Host "  OS Type        : $OsType"
 Write-Host "  VM Size        : $VmSize"
 Write-Host "  Admin Username : $AdminUsername"
 Write-Host "  Public HTTPS   : $EnablePublicHttps"
-Write-Host "  Enable Foundry : $EnableFoundry$(if ($EnableFoundry) { " (model: $FoundryModelName)" })"
+Write-Host "  Enable Foundry : $EnableFoundry$(if ($EnableFoundry) { " (model: $FoundryModelName, region: $FoundryLocation)" })"
 Write-Host "  Resource Group : $ResourceGroup"
 Write-Host "=========================================="
 Write-Host ""
@@ -550,6 +562,7 @@ $deploymentResult = az deployment group create `
     gatewayPassword=$GatewayPassword `
     enableFoundry=$($EnableFoundry.ToString().ToLower()) `
     foundryModelName=$(if ($EnableFoundry -and $FoundryModelName) { $FoundryModelName } else { 'gpt-4.1' }) `
+    foundryLocation=$(if ($EnableFoundry -and $FoundryLocation) { $FoundryLocation } else { 'eastus' }) `
     --output json | ConvertFrom-Json
 
 # Resume transcript (safe — no more secrets in command output)

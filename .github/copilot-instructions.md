@@ -82,6 +82,7 @@ azure-claw/
 | `gatewayPassword`   | securestring          | 否   | 自动生成       | Gateway 认证密码（enablePublicHttps 时使用） |
 | `enableFoundry`     | bool                  | 否   | `false`        | 自动创建 Azure AI 资源并部署模型             |
 | `foundryModelName`  | string                | 否   | `gpt-4.1`      | 部署的模型名称（enableFoundry 时使用）       |
+| `foundryLocation`   | string                | 否   | `eastus`       | Foundry 资源区域（非所有区域都支持所有模型） |
 
 - VM 名称固定为 `openclaw-vm`，不作为用户参数
 - SSH 认证方式固定为 password，不暴露 authenticationType 参数
