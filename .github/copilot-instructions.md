@@ -20,11 +20,18 @@ azure-claw/
 ├── .github/
 │   └── copilot-instructions.md      # 本文件（Copilot 开发指引）
 ├── docs/                            # 操作手册
-│   ├── guide-microsoft-foundry.md    # 配置 Azure OpenAI / Microsoft Foundry 模型
-│   ├── guide-model-troubleshooting.md # 模型连接排障指南
-│   ├── guide-operations.md          # 日常运维操作手册
-│   ├── guide-slack.md               # 配置 Slack 通道
-│   └── guide-teams.md               # 配置 Microsoft Teams 通道
+│   ├── zh/                          # 中文文档
+│   │   ├── guide-microsoft-foundry.md    # 配置 Azure OpenAI / Microsoft Foundry 模型
+│   │   ├── guide-model-troubleshooting.md # 模型连接排障指南
+│   │   ├── guide-operations.md          # 日常运维操作手册
+│   │   ├── guide-slack.md               # 配置 Slack 通道
+│   │   └── guide-teams.md               # 配置 Microsoft Teams 通道
+│   └── en/                          # English documentation
+│       ├── guide-microsoft-foundry.md
+│       ├── guide-model-troubleshooting.md
+│       ├── guide-operations.md
+│       ├── guide-slack.md
+│       └── guide-teams.md
 ├── infra/                           # Bicep 基础设施代码
 │   ├── main.bicep                   # 入口模板，根据 osType 参数分发
 │   ├── main.parameters.json         # 默认参数

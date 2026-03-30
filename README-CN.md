@@ -37,7 +37,7 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 
 点击按钮，在 Azure Portal 中填写参数即可。
 
-> 将 **Enable Foundry** 设为 `true`，部署时会自动创建 Azure AI 资源并部署模型（默认: gpt-4.1），无需部署后手动配置。如需将 Foundry 配置到 OpenClaw，请参阅 [配置 Microsoft Foundry 模型](docs/guide-microsoft-foundry.md)。
+> 将 **Enable Foundry** 设为 `true`，部署时会自动创建 Azure AI 资源并部署模型（默认: gpt-4.1），无需部署后手动配置。如需将 Foundry 配置到 OpenClaw，请参阅 [配置 Microsoft Foundry 模型](docs/zh/guide-microsoft-foundry.md)。
 
 > **注意**: Deploy to Azure 按钮需要仓库为 **公开仓库**，且已生成 ARM 模板：
 > ```powershell
@@ -195,11 +195,18 @@ azure-claw/
 ├── .github/
 │   └── copilot-instructions.md      # Copilot 开发指引
 ├── docs/                            # 操作手册
-│   ├── guide-microsoft-foundry.md    # 配置 Azure OpenAI / Microsoft Foundry 模型
-│   ├── guide-model-troubleshooting.md # 模型兼容性排障手册
-│   ├── guide-operations.md          # 运维手册（服务排查、重启、日志、升级等）
-│   ├── guide-slack.md               # 配置 Slack 通道
-│   └── guide-teams.md               # 配置 Microsoft Teams 通道
+│   ├── zh/                          # 中文文档
+│   │   ├── guide-microsoft-foundry.md    # 配置 Azure OpenAI / Microsoft Foundry 模型
+│   │   ├── guide-model-troubleshooting.md # 模型兼容性排障手册
+│   │   ├── guide-operations.md          # 运维手册（服务排查、重启、日志、升级等）
+│   │   ├── guide-slack.md               # 配置 Slack 通道
+│   │   └── guide-teams.md               # 配置 Microsoft Teams 通道
+│   └── en/                          # English documentation
+│       ├── guide-microsoft-foundry.md
+│       ├── guide-model-troubleshooting.md
+│       ├── guide-operations.md
+│       ├── guide-slack.md
+│       └── guide-teams.md
 ├── infra/                           # Bicep 基础设施代码
 │   ├── main.bicep                   # 主 Bicep 模板
 │   ├── azuredeploy.json             # ARM 模板（由 Bicep 生成，供一键部署）
@@ -287,11 +294,11 @@ wsl -d Ubuntu -- bash -c "sudo systemctl restart openclaw"
 
 部署完成后，参考以下指南配置 AI 模型和消息通道：
 
-- [配置 Azure OpenAI / Microsoft Foundry 模型](docs/guide-microsoft-foundry.md) — 使用 Azure 托管的 GPT-4.1 等模型
-- [配置 Slack 消息通道](docs/guide-slack.md) — 在 Slack 中与 AI 助手对话
-- [配置 Microsoft Teams 消息通道](docs/guide-teams.md) — 在 Teams 中与 AI 助手对话（提供半自动化配置脚本 `setup-teams.ps1`）
-- [模型兼容性排障](docs/guide-model-troubleshooting.md) — Responses API vs Chat Completions 选型、常见错误排查
-- [运维手册](docs/guide-operations.md) — 服务排查、重启、日志查看、升级、备份、安全巡检等日常运维操作
+- [配置 Azure OpenAI / Microsoft Foundry 模型](docs/zh/guide-microsoft-foundry.md) — 使用 Azure 托管的 GPT-4.1 等模型
+- [配置 Slack 消息通道](docs/zh/guide-slack.md) — 在 Slack 中与 AI 助手对话
+- [配置 Microsoft Teams 消息通道](docs/zh/guide-teams.md) — 在 Teams 中与 AI 助手对话（提供半自动化配置脚本 `setup-teams.ps1`）
+- [模型兼容性排障](docs/zh/guide-model-troubleshooting.md) — Responses API vs Chat Completions 选型、常见错误排查
+- [运维手册](docs/zh/guide-operations.md) — 服务排查、重启、日志查看、升级、备份、安全巡检等日常运维操作
 
 ## 参考链接
 

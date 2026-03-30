@@ -330,7 +330,7 @@ echo ">>> Done. Teams channel configured on Ubuntu VM."
 
     if ($LASTEXITCODE -ne 0) {
         Write-Log 'VM remote command failed. You may need to configure manually.' 'ERROR'
-        Write-Host "  See docs/guide-teams.md sections 2, 5, 9 for manual steps." -ForegroundColor Yellow
+        Write-Host "  See docs/zh/guide-teams.md sections 2, 5, 9 for manual steps." -ForegroundColor Yellow
     }
     else {
         Write-Log 'Ubuntu VM configured successfully.' 'INFO'
@@ -436,7 +436,7 @@ Write-Host ">>> Done. Teams channel configured on Windows VM."
 
     if ($LASTEXITCODE -ne 0) {
         Write-Log 'VM remote command failed. You may need to configure manually.' 'ERROR'
-        Write-Host "  See docs/guide-teams.md sections 2, 5, 9 for manual steps." -ForegroundColor Yellow
+        Write-Host "  See docs/zh/guide-teams.md sections 2, 5, 9 for manual steps." -ForegroundColor Yellow
     }
     else {
         Write-Log 'Windows VM configured successfully.' 'INFO'
@@ -708,7 +708,7 @@ Write-Host ""
 Write-Host "  3. (Optional) Test via Azure Portal first:" -ForegroundColor Cyan
 Write-Host "     Azure Bot '$BotName' -> Test in Web Chat" -ForegroundColor Gray
 Write-Host ""
-Write-Host "  Full guide: docs/guide-teams.md" -ForegroundColor Gray
+Write-Host "  Full guide: docs/zh/guide-teams.md" -ForegroundColor Gray
 Write-Host ""
 
 Stop-Transcript | Out-Null

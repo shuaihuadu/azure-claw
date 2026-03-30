@@ -20,7 +20,7 @@
 
 ## 一、前置条件
 
-- 已完成 Azure Claw 部署（参见主 [README](../README.md)）
+- 已完成 Azure Claw 部署（参见主 [README](../../README.md)）
 - Azure 订阅已开通 Azure OpenAI Service 访问权限
   > 如尚未开通，前往 [Azure OpenAI 申请页面](https://aka.ms/oai/access) 提交申请
 - 已通过 SSH (Ubuntu) 或 RDP (Windows) 连接到 VM

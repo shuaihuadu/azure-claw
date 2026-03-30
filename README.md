@@ -37,7 +37,7 @@ You also need:
 
 Click the button and fill in the parameters in the Azure Portal.
 
-> Set **Enable Foundry** to `true` to automatically create an Azure AI resource and deploy a model (default: gpt-4.1) during deployment — no post-deploy configuration needed. To configure Foundry models for OpenClaw, see [Configure Microsoft Foundry Models](docs/guide-microsoft-foundry.md).
+> Set **Enable Foundry** to `true` to automatically create an Azure AI resource and deploy a model (default: gpt-4.1) during deployment — no post-deploy configuration needed. To configure Foundry models for OpenClaw, see [Configure Microsoft Foundry Models](docs/en/guide-microsoft-foundry.md).
 
 > **Note**: The Deploy to Azure button requires the repository to be **public** and an ARM template to be generated:
 > ```powershell
@@ -195,11 +195,18 @@ azure-claw/
 ├── .github/
 │   └── copilot-instructions.md      # Copilot development guidelines
 ├── docs/                            # Operation guides
-│   ├── guide-microsoft-foundry.md    # Configure Azure OpenAI / Microsoft Foundry models
-│   ├── guide-model-troubleshooting.md # Model compatibility troubleshooting
-│   ├── guide-operations.md          # Operations handbook (service, logs, upgrades, etc.)
-│   ├── guide-slack.md               # Configure Slack channel
-│   └── guide-teams.md               # Configure Microsoft Teams channel
+│   ├── zh/                          # 中文文档 (Chinese)
+│   │   ├── guide-microsoft-foundry.md    # Configure Azure OpenAI / Microsoft Foundry models
+│   │   ├── guide-model-troubleshooting.md # Model compatibility troubleshooting
+│   │   ├── guide-operations.md          # Operations handbook (service, logs, upgrades, etc.)
+│   │   ├── guide-slack.md               # Configure Slack channel
+│   │   └── guide-teams.md               # Configure Microsoft Teams channel
+│   └── en/                          # English documentation
+│       ├── guide-microsoft-foundry.md
+│       ├── guide-model-troubleshooting.md
+│       ├── guide-operations.md
+│       ├── guide-slack.md
+│       └── guide-teams.md
 ├── infra/                           # Bicep infrastructure code
 │   ├── main.bicep                   # Main Bicep template
 │   ├── azuredeploy.json             # ARM template (generated from Bicep, for one-click deploy)
@@ -286,11 +293,11 @@ wsl -d Ubuntu -- bash -c "sudo systemctl restart openclaw"
 
 After deployment, refer to these guides to configure AI models and messaging channels:
 
-- [Configure Azure OpenAI / Microsoft Foundry Models](docs/guide-microsoft-foundry.md) — Use Azure-hosted GPT-4.1 and other models
-- [Configure Slack Channel](docs/guide-slack.md) — Chat with your AI assistant in Slack
-- [Configure Microsoft Teams Channel](docs/guide-teams.md) — Chat with your AI assistant in Teams (includes semi-automated setup script `setup-teams.ps1`)
-- [Model Compatibility Troubleshooting](docs/guide-model-troubleshooting.md) — Responses API vs Chat Completions, common error resolution
-- [Operations Handbook](docs/guide-operations.md) — Service management, logs, upgrades, backups, and security audits
+- [Configure Azure OpenAI / Microsoft Foundry Models](docs/en/guide-microsoft-foundry.md) — Use Azure-hosted GPT-4.1 and other models
+- [Configure Slack Channel](docs/en/guide-slack.md) — Chat with your AI assistant in Slack
+- [Configure Microsoft Teams Channel](docs/en/guide-teams.md) — Chat with your AI assistant in Teams (includes semi-automated setup script `setup-teams.ps1`)
+- [Model Compatibility Troubleshooting](docs/en/guide-model-troubleshooting.md) — Responses API vs Chat Completions, common error resolution
+- [Operations Handbook](docs/en/guide-operations.md) — Service management, logs, upgrades, backups, and security audits
 
 ## References
 
