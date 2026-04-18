@@ -380,7 +380,11 @@ if ($isInteractive) {
 
     $secPw = Read-Host "  Password (leave empty to auto-generate)" -AsSecureString
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secPw)
-    $inputPw = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
+    # NOTE: use PtrToStringBSTR (UTF-16, reads BSTR length prefix) rather than
+    # PtrToStringAuto — on macOS/Linux PowerShell, Auto resolves to UTF-8 and
+    # stops at the first NUL byte (every ASCII char in a BSTR is followed by
+    # 0x00), truncating the password to 1 character.
+    $inputPw = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
     [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
     $AdminPassword = if ([string]::IsNullOrWhiteSpace($inputPw)) { '' } else { $inputPw }
     Write-Log "Admin username: $AdminUsername" 'INFO'
