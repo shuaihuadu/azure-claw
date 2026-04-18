@@ -22,7 +22,8 @@
     Resource group name. Default: rg-openclaw
 
 .PARAMETER EnablePublicHttps
-    Enable public HTTPS access via Caddy + Let's Encrypt. Default: off.
+    Enable public HTTPS access via Caddy + Let's Encrypt. Default: on.
+    Pass -EnablePublicHttps:$false to disable.
 
 .EXAMPLE
     .\deploy.ps1
