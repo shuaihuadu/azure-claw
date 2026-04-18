@@ -580,7 +580,7 @@ if ($deployedOsType -eq 'Ubuntu') {
         $guideBody = @"
 ## 一、连接远程服务器
 
-使用 SSH 密码登录（用户名和密码参见 ``.env`` 文件）：
+使用 SSH 密码登录（`deploy.ps1` 部署时密码在同目录 ``.env``；Portal 一键部署时即表单填写的 `adminPassword`）：
 
 ``````bash
 ssh ${deployedAdminUsername}@${publicIpAddress}
@@ -589,10 +589,33 @@ ssh ${deployedAdminUsername}@${publicIpAddress}
 ## 二、连接 OpenClaw
 
 1. 浏览器访问 Web 控制台（HTTPS）: https://${vmFqdn}
-2. 登录密码参见 ``.env`` 文件中的 ``GATEWAY_PASSWORD``
-3. 检查服务状态: ``sudo systemctl status openclaw``
-4. 检查 Caddy 状态: ``sudo systemctl status caddy``
-5. 查看日志: ``journalctl -u openclaw -f``
+2. 检查服务状态: ``sudo systemctl status openclaw``
+3. 检查 Caddy 状态: ``sudo systemctl status caddy``
+4. 查看日志: ``journalctl -u openclaw -f``
+
+### 凭据速查
+
+**Gateway 登录密码**
+
+- 使用 ``deploy.ps1`` 部署：见本目录 ``.env`` 文件的 ``GATEWAY_PASSWORD`` 字段
+- 使用 Azure Portal 一键部署：即你在部署表单中填写的 ``gatewayPassword``
+- 忘了？SSH 进 VM 执行：
+  ``````bash
+  sudo systemctl cat openclaw | grep OPENCLAW_GATEWAY_PASSWORD
+  ``````
+
+**Control Token（仅 macOS / iOS / Android 客户端或 CLI 远程连接时需要）**
+
+``````bash
+# 查看当前 token
+jq -r '.gateway.auth.token // "<not set>"' ~/.openclaw/openclaw.json
+
+# 没有则生成一个新 token
+openclaw doctor --generate-gateway-token
+sudo systemctl restart openclaw
+``````
+
+> 详见 [运维手册 §10 Gateway Control Token](../../docs/zh/guide-operations.md#gateway-control-tokengatewayauthtoken)。
 
 > **首次连接节奏**：(三) 加白 Origin（如需）→ (四) 浏览器审批配对 → 进入 Web UI 后运行 ``openclaw onboard`` 配置模型 API Key → ``openclaw doctor`` 自检。
 
@@ -641,7 +664,7 @@ openclaw devices approve --latest
         $guideBody = @"
 ## 一、连接远程服务器
 
-使用 SSH 密码登录（用户名和密码参见 ``.env`` 文件）：
+使用 SSH 密码登录（`deploy.ps1` 部署时密码在同目录 ``.env``；Portal 一键部署时即表单填写的 `adminPassword`）：
 
 ``````bash
 ssh ${deployedAdminUsername}@${publicIpAddress}
@@ -650,9 +673,32 @@ ssh ${deployedAdminUsername}@${publicIpAddress}
 ## 二、连接 OpenClaw
 
 1. 浏览器访问 Web 控制台: http://${publicIpAddress}:18789
-2. 登录密码参见 ``.env`` 文件中的 ``GATEWAY_PASSWORD``
-3. 检查服务状态: ``sudo systemctl status openclaw``
-4. 查看日志: ``journalctl -u openclaw -f``
+2. 检查服务状态: ``sudo systemctl status openclaw``
+3. 查看日志: ``journalctl -u openclaw -f``
+
+### 凭据速查
+
+**Gateway 登录密码**
+
+- 使用 ``deploy.ps1`` 部署：见本目录 ``.env`` 文件的 ``GATEWAY_PASSWORD`` 字段
+- 使用 Azure Portal 一键部署：即你在部署表单中填写的 ``gatewayPassword``
+- 忘了？SSH 进 VM 执行：
+  ``````bash
+  sudo systemctl cat openclaw | grep OPENCLAW_GATEWAY_PASSWORD
+  ``````
+
+**Control Token（仅 macOS / iOS / Android 客户端或 CLI 远程连接时需要）**
+
+``````bash
+# 查看当前 token
+jq -r '.gateway.auth.token // "<not set>"' ~/.openclaw/openclaw.json
+
+# 没有则生成一个新 token
+openclaw doctor --generate-gateway-token
+sudo systemctl restart openclaw
+``````
+
+> 详见 [运维手册 §10 Gateway Control Token](../../docs/zh/guide-operations.md#gateway-control-tokengatewayauthtoken)。
 
 > **首次连接节奏**：(三) 加白 Origin（**必做**）→ (四) 浏览器审批配对 → 进入 Web UI 后运行 ``openclaw onboard`` 配置模型 API Key → ``openclaw doctor`` 自检。
 
@@ -702,7 +748,7 @@ else {
         $guideBody = @"
 ## 一、连接远程服务器
 
-使用远程桌面连接（用户名和密码参见 ``.env`` 文件）：
+使用远程桌面连接（`deploy.ps1` 部署时密码在同目录 ``.env``；Portal 一键部署时即表单填写的 `adminPassword`）：
 
 ``````powershell
 mstsc /v:${publicIpAddress}
@@ -711,9 +757,32 @@ mstsc /v:${publicIpAddress}
 ## 二、连接 OpenClaw
 
 1. 外网浏览器访问（HTTPS）: https://${vmFqdn}
-2. 登录密码参见 ``.env`` 文件中的 ``GATEWAY_PASSWORD``
-3. RDP 登录后本地访问: http://localhost:18789
-4. 打开 PowerShell 运行: ``openclaw doctor``
+2. RDP 登录后本地访问: http://localhost:18789
+3. 打开 PowerShell 运行: ``openclaw doctor``
+
+### 凭据速查
+
+**Gateway 登录密码**
+
+- 使用 ``deploy.ps1`` 部署：见本目录 ``.env`` 文件的 ``GATEWAY_PASSWORD`` 字段
+- 使用 Azure Portal 一键部署：即你在部署表单中填写的 ``gatewayPassword``
+- 忘了？RDP 后在 PowerShell 执行：
+  ``````powershell
+  wsl -d Ubuntu -u openclaw -- sudo systemctl cat openclaw ``| Select-String OPENCLAW_GATEWAY_PASSWORD
+  ``````
+
+**Control Token（仅 macOS / iOS / Android 客户端或 CLI 远程连接时需要）**
+
+``````powershell
+# 查看当前 token
+wsl -d Ubuntu -u openclaw -- jq -r '.gateway.auth.token // "<not set>"' ~/.openclaw/openclaw.json
+
+# 没有则生成一个新 token
+wsl -d Ubuntu -u openclaw -- openclaw doctor --generate-gateway-token
+wsl -d Ubuntu -u openclaw -- sudo systemctl restart openclaw
+``````
+
+> 详见 [运维手册 §10 Gateway Control Token](../../docs/zh/guide-operations.md#gateway-control-tokengatewayauthtoken)。
 
 > **首次连接节奏**：(三) 加白 Origin（如需）→ (四) 浏览器审批配对 → 进入 Web UI 后运行 ``openclaw onboard`` 配置模型 API Key → ``openclaw doctor`` 自检。
 
@@ -761,7 +830,7 @@ wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest
         $guideBody = @"
 ## 一、连接远程服务器
 
-使用远程桌面连接（用户名和密码参见 ``.env`` 文件）：
+使用远程桌面连接（`deploy.ps1` 部署时密码在同目录 ``.env``；Portal 一键部署时即表单填写的 `adminPassword`）：
 
 ``````powershell
 mstsc /v:${publicIpAddress}
@@ -770,9 +839,32 @@ mstsc /v:${publicIpAddress}
 ## 二、连接 OpenClaw
 
 1. RDP 登录后打开浏览器访问: http://localhost:18789
-2. 登录密码参见 ``.env`` 文件中的 ``GATEWAY_PASSWORD``
-3. 打开 PowerShell 运行: ``openclaw doctor``
-4. 运行交互式配置: ``openclaw onboard --install-daemon``
+2. 打开 PowerShell 运行: ``openclaw doctor``
+3. 运行交互式配置: ``openclaw onboard --install-daemon``
+
+### 凭据速查
+
+**Gateway 登录密码**
+
+- 使用 ``deploy.ps1`` 部署：见本目录 ``.env`` 文件的 ``GATEWAY_PASSWORD`` 字段
+- 使用 Azure Portal 一键部署：即你在部署表单中填写的 ``gatewayPassword``
+- 忘了？RDP 后在 PowerShell 执行：
+  ``````powershell
+  wsl -d Ubuntu -u openclaw -- sudo systemctl cat openclaw ``| Select-String OPENCLAW_GATEWAY_PASSWORD
+  ``````
+
+**Control Token（仅 macOS / iOS / Android 客户端或 CLI 远程连接时需要）**
+
+``````powershell
+# 查看当前 token
+wsl -d Ubuntu -u openclaw -- jq -r '.gateway.auth.token // "<not set>"' ~/.openclaw/openclaw.json
+
+# 没有则生成一个新 token
+wsl -d Ubuntu -u openclaw -- openclaw doctor --generate-gateway-token
+wsl -d Ubuntu -u openclaw -- sudo systemctl restart openclaw
+``````
+
+> 详见 [运维手册 §10 Gateway Control Token](../../docs/zh/guide-operations.md#gateway-control-tokengatewayauthtoken)。
 
 ## 三、设备配对
 
