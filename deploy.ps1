@@ -24,16 +24,6 @@
 .PARAMETER EnablePublicHttps
     Enable public HTTPS access via Caddy + Let's Encrypt. Default: off.
 
-.PARAMETER EnableFoundry
-    Automatically create Azure AI (Microsoft Foundry) resource and deploy a model during Bicep deployment.
-
-.PARAMETER FoundryModelName
-    Model name to deploy when EnableFoundry is set. Default: gpt-4.1
-
-.PARAMETER FoundryLocation
-    Azure region for the Foundry (AI Services) resource. Not all regions support all models.
-    Default: eastus (broadest model availability). The VM and AI resource do not need to be co-located.
-
 .EXAMPLE
     .\deploy.ps1
     # Interactive guided setup
@@ -51,15 +41,12 @@ param(
     [string]$AdminUsername = '',
     [string]$AdminPassword = '',
     [string]$ResourceGroup = '',
-    [switch]$EnablePublicHttps,
-    [switch]$EnableFoundry,
-    [string]$FoundryModelName = '',
-    [string]$FoundryLocation = ''
+    [switch]$EnablePublicHttps
 )
 
 $ErrorActionPreference = 'Stop'
 
-# Load shared functions (model knowledge base, interactive helpers, etc.)
+# Load shared functions (interactive helpers)
 . "$PSScriptRoot/scripts/shared-functions.ps1"
 
 $TemplateFile = Join-Path $PSScriptRoot 'infra' 'main.bicep'
@@ -184,7 +171,7 @@ if ($isInteractive) {
     else {
         $subNames = $subscriptions | ForEach-Object { $_.name }
         $subDescs = $subscriptions | ForEach-Object { "($($_.id.Substring(0, 8))...)" }
-        $selectedSubName = Read-Choice -Prompt "[1/8] Select Azure subscription:" `
+        $selectedSubName = Read-Choice -Prompt "[1/7] Select Azure subscription:" `
             -Options $subNames -Descriptions $subDescs -Default 1
         $selectedSub = $subscriptions | Where-Object { $_.name -eq $selectedSubName } | Select-Object -First 1
     }
@@ -201,7 +188,7 @@ if ($isInteractive) {
     $existingRgs = az group list --query "[].{name:name, location:location}" --output json | ConvertFrom-Json
 
     $lastRg = Get-LastValue 'ResourceGroup' 'rg-openclaw'
-    Write-Host "[2/8] Resource group:"
+    Write-Host "[2/7] Resource group:"
     Write-Host "    1. Create new (or reuse '$lastRg')"
 
     $rgOptions = @($lastRg)
@@ -283,12 +270,12 @@ if ($isInteractive) {
                 }
             }
         }
-        $Location = Read-Choice -Prompt "[3/8] Select Azure region:" `
+        $Location = Read-Choice -Prompt "[3/7] Select Azure region:" `
             -Options $regionNames -Descriptions $regionDescs -Default $regionDefault -AllowCustom
     }
     else {
         $allRegionNames = ($regions | Sort-Object name | ForEach-Object { $_.name })
-        Write-Host "[3/8] No preferred regions available. Enter a region name."
+        Write-Host "[3/7] No preferred regions available. Enter a region name."
         Write-Host "  Available: $($allRegionNames -join ', ')"
         while ($true) {
             $Location = (Read-Host "  Region").Trim()
@@ -300,7 +287,7 @@ if ($isInteractive) {
 
     # --- Select OS type ---
     $osDefault = if ((Get-LastValue 'OsType') -eq 'Windows') { 2 } else { 1 }
-    $OsType = Read-Choice -Prompt "[4/8] Select operating system:" `
+    $OsType = Read-Choice -Prompt "[4/7] Select operating system:" `
         -Options @('Ubuntu', 'Windows') `
         -Descriptions @('24.04 LTS (recommended, 4GB+ RAM)', '11 via WSL2 (requires 8GB+ RAM)') `
         -Default $osDefault
@@ -354,7 +341,7 @@ if ($isInteractive) {
             $idx = [array]::IndexOf($sizeNames, $lastVmSize)
             if ($idx -ge 0) { $sizeDefault = $idx + 1 }
         }
-        $VmSize = Read-Choice -Prompt "[5/8] Select VM size:" `
+        $VmSize = Read-Choice -Prompt "[5/7] Select VM size:" `
             -Options $sizeNames -Descriptions $sizeDescs -Default $sizeDefault -AllowCustom
     }
     else {
@@ -385,7 +372,7 @@ if ($isInteractive) {
     # --- Admin credentials ---
     Write-Host ""
     $lastUser = Get-LastValue 'AdminUsername' 'azureclaw'
-    $inputUser = Read-Host "[6/8] Admin username [$lastUser]"
+    $inputUser = Read-Host "[6/7] Admin username [$lastUser]"
     $AdminUsername = if ([string]::IsNullOrWhiteSpace($inputUser)) { $lastUser } else { $inputUser.Trim() }
 
     $secPw = Read-Host "  Password (leave empty to auto-generate)" -AsSecureString
@@ -397,7 +384,7 @@ if ($isInteractive) {
 
     # --- Enable HTTPS ---
     Write-Host ""
-    Write-Host "[7/8] Enable public HTTPS? (Caddy + Let's Encrypt auto-certificate)"
+    Write-Host "[7/7] Enable public HTTPS? (Caddy + Let's Encrypt auto-certificate)"
     Write-Host "  This adds password-protected HTTPS access via the Azure VM domain name."
     $lastHttps = (Get-LastValue 'EnablePublicHttps') -eq 'true'
     $httpsDefault = if ($lastHttps -eq $false -and (Get-LastValue 'EnablePublicHttps') -ne $null) { 'N' } else { 'Y' }
@@ -407,32 +394,6 @@ if ($isInteractive) {
     }
     else {
         $EnablePublicHttps = ($httpsInput -ne 'n' -and $httpsInput -ne 'N')
-    }
-
-    # --- Enable Foundry ---
-    Write-Host ""
-    Write-Host "[8/8] Auto-create Microsoft Foundry (Azure AI) resource?"
-    Write-Host "  This provisions an Azure AI Services resource and deploys a model during deployment."
-    Write-Host "  You can also configure models manually after deployment."
-    $lastFoundry = (Get-LastValue 'EnableFoundry') -eq 'true'
-    $foundryDefault = if ($lastFoundry) { 'Y' } else { 'N' }
-    $foundryInput = Read-Host "  Enable? (y/N) [$foundryDefault]"
-    if ([string]::IsNullOrWhiteSpace($foundryInput)) {
-        $EnableFoundry = ($foundryDefault -eq 'Y')
-    }
-    else {
-        $EnableFoundry = ($foundryInput -eq 'y' -or $foundryInput -eq 'Y')
-    }
-
-    if ($EnableFoundry) {
-        $lastModel = Get-LastValue 'FoundryModelName' 'gpt-4.1'
-        $modelInput = Read-Host "  Model name [$lastModel]"
-        $FoundryModelName = if ([string]::IsNullOrWhiteSpace($modelInput)) { $lastModel } else { $modelInput.Trim() }
-
-        $lastFoundryLoc = Get-LastValue 'FoundryLocation' 'eastus'
-        Write-Host "  AI resource region (not all regions support all models; eastus recommended)"
-        $foundryLocInput = Read-Host "  Foundry location [$lastFoundryLoc]"
-        $FoundryLocation = if ([string]::IsNullOrWhiteSpace($foundryLocInput)) { $lastFoundryLoc } else { $foundryLocInput.Trim() }
     }
 
     # --- Summary and confirm ---
@@ -447,7 +408,6 @@ if ($isInteractive) {
     Write-Host "  Admin Username : $AdminUsername"
     Write-Host "  Admin Password : $(if ([string]::IsNullOrEmpty($AdminPassword)) { '(auto-generate)' } else { '********' })"
     Write-Host "  Public HTTPS   : $EnablePublicHttps"
-    Write-Host "  Enable Foundry : $EnableFoundry$(if ($EnableFoundry) { " (model: $FoundryModelName, region: $FoundryLocation)" })"
     Write-Host "  Resource Group : $ResourceGroup"
     Write-Host "=========================================="
     Write-Host ""
@@ -464,8 +424,6 @@ else {
     if ([string]::IsNullOrEmpty($VmSize)) { $VmSize = Get-LastValue 'VmSize' 'Standard_B2als_v2' }
     if ([string]::IsNullOrEmpty($ResourceGroup)) { $ResourceGroup = Get-LastValue 'ResourceGroup' 'rg-openclaw' }
     if ([string]::IsNullOrEmpty($AdminUsername)) { $AdminUsername = Get-LastValue 'AdminUsername' 'azureclaw' }
-    if ([string]::IsNullOrEmpty($FoundryModelName)) { $FoundryModelName = Get-LastValue 'FoundryModelName' 'gpt-4.1' }
-    if ([string]::IsNullOrEmpty($FoundryLocation)) { $FoundryLocation = Get-LastValue 'FoundryLocation' 'eastus' }
 }
 
 # ============================================================
@@ -478,9 +436,6 @@ $saveData = [PSCustomObject]@{
     AdminUsername     = $AdminUsername
     ResourceGroup     = $ResourceGroup
     EnablePublicHttps = $EnablePublicHttps.ToString().ToLower()
-    EnableFoundry     = $EnableFoundry.ToString().ToLower()
-    FoundryModelName  = $FoundryModelName
-    FoundryLocation   = $FoundryLocation
     SavedAt           = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ss')
 }
 try {
@@ -512,7 +467,6 @@ Write-Host "  OS Type        : $OsType"
 Write-Host "  VM Size        : $VmSize"
 Write-Host "  Admin Username : $AdminUsername"
 Write-Host "  Public HTTPS   : $EnablePublicHttps"
-Write-Host "  Enable Foundry : $EnableFoundry$(if ($EnableFoundry) { " (model: $FoundryModelName, region: $FoundryLocation)" })"
 Write-Host "  Resource Group : $ResourceGroup"
 Write-Host "=========================================="
 Write-Host ""
@@ -544,16 +498,6 @@ Write-Log 'Resource group ready.' 'INFO'
 
 # --- Deploy Bicep template ---
 
-# If Foundry is enabled, purge any soft-deleted AI resources to avoid subdomain conflicts
-if ($EnableFoundry) {
-    Write-Log 'Checking for soft-deleted AI Services that may conflict...' 'STEP'
-    $purged = Purge-SoftDeletedAIResource -NamePrefix 'openclaw-ai-'
-    if ($purged) {
-        Write-Log 'Soft-deleted AI resource(s) purged. Waiting 10 seconds for propagation...' 'INFO'
-        Start-Sleep -Seconds 10
-    }
-}
-
 Write-Log 'Deploying Bicep template (this may take several minutes)...' 'STEP'
 
 # Pause transcript to prevent passwords from leaking into deploy.log
@@ -570,9 +514,6 @@ $deploymentResult = az deployment group create `
     adminPassword=$AdminPassword `
     enablePublicHttps=$($EnablePublicHttps.ToString().ToLower()) `
     gatewayPassword=$GatewayPassword `
-    enableFoundry=$($EnableFoundry.ToString().ToLower()) `
-    foundryModelName=$(if ($EnableFoundry -and $FoundryModelName) { $FoundryModelName } else { 'gpt-4.1' }) `
-    foundryLocation=$(if ($EnableFoundry -and $FoundryLocation) { $FoundryLocation } else { 'eastus' }) `
     --output json | ConvertFrom-Json
 
 # Resume transcript (safe — no more secrets in command output)
@@ -651,10 +592,24 @@ ssh ${deployedAdminUsername}@${publicIpAddress}
 2. 登录密码参见 ``.env`` 文件中的 ``GATEWAY_PASSWORD``
 3. 检查服务状态: ``sudo systemctl status openclaw``
 4. 检查 Caddy 状态: ``sudo systemctl status caddy``
-5. 运行交互式配置: ``openclaw onboard``
-6. 查看日志: ``journalctl -u openclaw -f``
+5. 查看日志: ``journalctl -u openclaw -f``
 
-## 三、设备配对
+> **首次连接节奏**：(三) 加白 Origin（如需）→ (四) 浏览器审批配对 → 进入 Web UI 后运行 ``openclaw onboard`` 配置模型 API Key → ``openclaw doctor`` 自检。
+
+## 三、配置访问 Origin（如需追加）
+
+部署脚本已自动将 ``https://${vmFqdn}`` 加入 Control UI 白名单。如果还需要从其他 origin（自定义域名、内网代理、IP 直连等）访问，SSH 进 VM 后执行：
+
+``````bash
+# 用空格分隔多个 origin，单引号包裹整个 JSON 数组
+openclaw config set gateway.controlUi.allowedOrigins \
+  '["https://${vmFqdn}", "https://your-extra-domain.com"]'
+sudo systemctl restart openclaw
+``````
+
+> 浏览器若报 ``origin not allowed``，详见 [运维手册 §11.1](../../docs/zh/guide-operations.md#111-control-ui-origin-not-allowed)。
+
+## 四、设备配对
 
 首次通过浏览器连接 Gateway 时，需要进行设备配对：
 
@@ -675,7 +630,7 @@ openclaw devices approve --latest
 > - ``openclaw devices approve --latest`` — 审批最新请求
 > - ``openclaw devices remove <id>`` — 移除设备
 
-## 四、清理资源
+## 五、清理资源
 
 ``````powershell
 .\destroy.ps1
@@ -697,10 +652,23 @@ ssh ${deployedAdminUsername}@${publicIpAddress}
 1. 浏览器访问 Web 控制台: http://${publicIpAddress}:18789
 2. 登录密码参见 ``.env`` 文件中的 ``GATEWAY_PASSWORD``
 3. 检查服务状态: ``sudo systemctl status openclaw``
-4. 运行交互式配置: ``openclaw onboard``
-5. 查看日志: ``journalctl -u openclaw -f``
+4. 查看日志: ``journalctl -u openclaw -f``
 
-## 三、设备配对
+> **首次连接节奏**：(三) 加白 Origin（**必做**）→ (四) 浏览器审批配对 → 进入 Web UI 后运行 ``openclaw onboard`` 配置模型 API Key → ``openclaw doctor`` 自检。
+
+## 三、配置访问 Origin（必做）
+
+Gateway 默认只信 loopback origin；从公网 IP 访问浏览器会被拦截，必须把访问 origin 加白：
+
+``````bash
+openclaw config set gateway.controlUi.allowedOrigins \
+  '["http://${publicIpAddress}:18789"]'
+sudo systemctl restart openclaw
+``````
+
+> 详见 [运维手册 §11.1](../../docs/zh/guide-operations.md#111-control-ui-origin-not-allowed)。
+
+## 四、设备配对
 
 首次通过浏览器连接 Gateway 时，需要进行设备配对：
 
@@ -721,7 +689,7 @@ openclaw devices approve --latest
 > - ``openclaw devices approve --latest`` — 审批最新请求
 > - ``openclaw devices remove <id>`` — 移除设备
 
-## 四、清理资源
+## 五、清理资源
 
 ``````powershell
 .\destroy.ps1
@@ -746,9 +714,22 @@ mstsc /v:${publicIpAddress}
 2. 登录密码参见 ``.env`` 文件中的 ``GATEWAY_PASSWORD``
 3. RDP 登录后本地访问: http://localhost:18789
 4. 打开 PowerShell 运行: ``openclaw doctor``
-5. 运行交互式配置: ``openclaw onboard --install-daemon``
 
-## 三、设备配对
+> **首次连接节奏**：(三) 加白 Origin（如需）→ (四) 浏览器审批配对 → 进入 Web UI 后运行 ``openclaw onboard`` 配置模型 API Key → ``openclaw doctor`` 自检。
+
+## 三、配置访问 Origin（如需追加）
+
+部署脚本已自动将 ``https://${vmFqdn}`` 加入 Control UI 白名单。如需从其他 origin 访问，RDP 后在 PowerShell 执行：
+
+``````powershell
+wsl -d Ubuntu -u openclaw -- openclaw config set gateway.controlUi.allowedOrigins ``
+  '["https://${vmFqdn}", "https://your-extra-domain.com"]'
+wsl -d Ubuntu -u openclaw -- sudo systemctl restart openclaw
+``````
+
+> 详见 [运维手册 §11.1](../../docs/zh/guide-operations.md#111-control-ui-origin-not-allowed)。
+
+## 四、设备配对
 
 首次通过浏览器连接 Gateway 时，需要进行设备配对：
 
@@ -769,7 +750,7 @@ wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest
 > - ``wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest`` — 审批最新请求
 > - ``wsl -d Ubuntu -u openclaw -- openclaw devices remove <id>`` — 移除设备
 
-## 四、清理资源
+## 五、清理资源
 
 ``````powershell
 .\destroy.ps1
@@ -867,412 +848,5 @@ else {
 }
 
 Write-Host ""
-
-# ============================================================
-# Optional: Configure Microsoft Foundry models
-# ============================================================
-
-$configureFoundry = $false
-
-if ($EnableFoundry) {
-    Write-Host ""
-    Write-Host "  [INFO] Foundry resource and model '$FoundryModelName' were provisioned during Bicep deployment." -ForegroundColor Green
-    Write-Host "  The install script has auto-configured OpenClaw with the deployed model." -ForegroundColor Green
-    Write-Host "  To add more models later, run: scripts/setup-foundry-model.ps1" -ForegroundColor Gray
-    $configureFoundry = $true
-}
-elseif ($isInteractive) {
-    Write-Host ""
-    Write-Host "=========================================="
-    Write-Host "  AI Model Configuration"
-    Write-Host "=========================================="
-    Write-Host ""
-    Write-Host "  Configure Azure OpenAI / Microsoft Foundry models for OpenClaw?"
-    Write-Host "  You can also configure later via: scripts/setup-foundry-model.ps1"
-    Write-Host ""
-    Write-Host "    [1] Select existing Azure AI resource  (auto-detect endpoint, key, models)"
-    Write-Host "    [2] Create new Foundry resource         (provision resource + deploy models)"
-    Write-Host "    [3] Manual input                        (provide endpoint, key, models)"
-    Write-Host "    [S] Skip"
-    Write-Host ""
-
-    $foundryMode = ''
-    while ($true) {
-        $foundryInput = Read-Host "  Choice [S]"
-        if ([string]::IsNullOrWhiteSpace($foundryInput) -or $foundryInput -match '^[Ss]$') {
-            $foundryMode = 'skip'; break
-        }
-        if ($foundryInput -in @('1', '2', '3')) {
-            $foundryMode = $foundryInput; break
-        }
-        Write-Host "  Invalid choice. Enter 1, 2, 3, or S." -ForegroundColor Yellow
-    }
-
-    # =========================================================
-    # Mode 1: Select existing Azure AI resource
-    # =========================================================
-    if ($foundryMode -eq '1') {
-        Write-Host ""
-        Write-Log 'Querying Azure AI resources in current subscription...' 'STEP'
-
-        $aiResources = az cognitiveservices account list `
-            --query "[?kind=='AIServices' || kind=='OpenAI'].{name:name, kind:kind, location:location, rg:resourceGroup, endpoint:properties.endpoints.\"OpenAI Language Model Instance API\"}" `
-            --output json 2>&1 | ConvertFrom-Json
-
-        if (-not $aiResources -or $aiResources.Count -eq 0) {
-            Write-Host "  No Azure AI / OpenAI resources found in this subscription." -ForegroundColor Yellow
-            Write-Host "  Choose option [2] to create a new resource, or [3] for manual input." -ForegroundColor Yellow
-        }
-        else {
-            $resNames = $aiResources | ForEach-Object { $_.name }
-            $resDescs = $aiResources | ForEach-Object { "($($_.kind), $($_.location), rg=$($_.rg))" }
-
-            $selectedResName = Read-Choice -Prompt "  Select Azure AI resource:" `
-                -Options $resNames -Descriptions $resDescs -Default 1
-            $selectedRes = $aiResources | Where-Object { $_.name -eq $selectedResName } | Select-Object -First 1
-
-            Write-Host ""
-            Write-Log "Selected: $($selectedRes.name) ($($selectedRes.kind), $($selectedRes.location))" 'INFO'
-
-            # Get API key
-            Write-Log 'Retrieving API key...' 'STEP'
-            $keys = az cognitiveservices account keys list `
-                --name $selectedRes.name `
-                --resource-group $selectedRes.rg `
-                --output json 2>&1 | ConvertFrom-Json
-
-            $foundryApiKey = $keys.key1
-            $foundryEndpoint = $selectedRes.endpoint
-            if (-not $foundryEndpoint) {
-                # Fallback: construct from resource name
-                $foundryEndpoint = "https://$($selectedRes.name).openai.azure.com/"
-            }
-            $foundryEndpoint = Normalize-FoundryEndpoint $foundryEndpoint
-
-            Write-Log "Endpoint: $foundryEndpoint" 'INFO'
-            Write-Log 'API key retrieved.' 'INFO'
-
-            # List deployed models
-            Write-Log 'Querying deployed models...' 'STEP'
-            $deployments = az cognitiveservices account deployment list `
-                --name $selectedRes.name `
-                --resource-group $selectedRes.rg `
-                --query "[].{deployment:name, model:properties.model.name, sku:sku.name}" `
-                --output json 2>&1 | ConvertFrom-Json
-
-            if (-not $deployments -or $deployments.Count -eq 0) {
-                Write-Host "  No model deployments found on this resource." -ForegroundColor Yellow
-                Write-Host "  Deploy models in the Foundry portal first, or choose option [2]." -ForegroundColor Yellow
-            }
-            else {
-                $modelNames = $deployments | ForEach-Object { $_.deployment }
-                $modelDescs = $deployments | ForEach-Object { "(model=$($_.model), sku=$($_.sku))" }
-
-                $selectedModels = Read-MultiChoice -Prompt "  Select models to configure:" `
-                    -Options $modelNames -Descriptions $modelDescs
-
-                Write-Host ""
-                Write-Host "  Endpoint: $foundryEndpoint" -ForegroundColor Cyan
-                Write-Host "  Models:   $($selectedModels -join ', ')" -ForegroundColor Cyan
-                Write-Host ""
-
-                Write-Log 'Deploying Foundry configuration to VM...' 'STEP'
-                try {
-                    $result = Deploy-FoundryConfigToVM `
-                        -Endpoint $foundryEndpoint `
-                        -ApiKey $foundryApiKey `
-                        -Models $selectedModels `
-                        -VmResourceGroup $ResourceGroup `
-                        -VmName $vmName `
-                        -AdminUsername $deployedAdminUsername
-
-                    if ($result -match 'OK:') {
-                        Write-Host "  [OK] $($result -split "`n" | Select-String 'OK:' | Select-Object -First 1)" -ForegroundColor Green
-                        Write-Host "  $($result -split "`n" | Select-String 'Gateway:' | Select-Object -First 1)" -ForegroundColor Green
-                        $configureFoundry = $true
-
-                        # Save to .env
-                        $envFile = Join-Path $logDir '.env'
-                        Add-Content -Path $envFile -Value "FOUNDRY_ENDPOINT=$foundryEndpoint"
-                        Add-Content -Path $envFile -Value "FOUNDRY_MODELS=$($selectedModels -join ',')"
-                        Add-Content -Path $envFile -Value "FOUNDRY_DEFAULT_MODEL=azure-openai/$($selectedModels[0])"
-                    }
-                    else {
-                        Write-Host "  [WARN] Configuration may have failed:" -ForegroundColor Yellow
-                        Write-Host "  $result" -ForegroundColor Gray
-                    }
-                }
-                catch {
-                    Write-Host "  [WARN] Failed: $_" -ForegroundColor Yellow
-                }
-            }
-        }
-    }
-
-    # =========================================================
-    # Mode 2: Create new Foundry resource
-    # =========================================================
-    elseif ($foundryMode -eq '2') {
-        Write-Host ""
-        Write-Log 'Creating new Microsoft Foundry resource...' 'STEP'
-
-        # Resource name
-        $uniqueSuffix = [System.Guid]::NewGuid().ToString('N').Substring(0, 8)
-        $defaultResName = "openclaw-ai-$uniqueSuffix"
-        $resNameInput = Read-Host "  Resource name [$defaultResName]"
-        $foundryResName = if ([string]::IsNullOrWhiteSpace($resNameInput)) { $defaultResName } else { $resNameInput.Trim() }
-
-        # Resource group (reuse deployment RG or create new)
-        $foundryRg = $ResourceGroup
-        Write-Host "  Resource group: $foundryRg (same as VM)"
-
-        # Location — pick from regions with AI services, or use VM's location
-        $foundryLocation = $Location
-        Write-Host "  Location: $foundryLocation (same as VM)"
-        Write-Host ""
-        Write-Host "  Note: Not all models are available in every region."
-        Write-Host "  If model deployment fails, try 'eastus', 'eastus2', or 'westus2'."
-        $locInput = Read-Host "  Use different location? (enter region or press Enter to keep $foundryLocation)"
-        if (-not [string]::IsNullOrWhiteSpace($locInput)) { $foundryLocation = $locInput.Trim() }
-
-        Write-Host ""
-        Write-Log "Creating Foundry resource '$foundryResName' in '$foundryLocation'..." 'STEP'
-
-        # Create the AI Services resource
-        az cognitiveservices account create `
-            --name $foundryResName `
-            --resource-group $foundryRg `
-            --kind AIServices `
-            --sku s0 `
-            --location $foundryLocation `
-            --allow-project-management `
-            --output none 2>&1
-
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "  [ERROR] Failed to create Foundry resource." -ForegroundColor Red
-            Write-Host "  You can configure later via: scripts/setup-foundry-model.ps1" -ForegroundColor Yellow
-        }
-        else {
-            # Set custom domain (required for OpenAI endpoint)
-            Write-Log "Setting custom domain '$foundryResName'..." 'STEP'
-            az cognitiveservices account update `
-                --name $foundryResName `
-                --resource-group $foundryRg `
-                --custom-domain $foundryResName `
-                --output none 2>&1
-
-            Write-Log 'Foundry resource created successfully.' 'INFO'
-
-            # Get endpoint and key
-            $newRes = az cognitiveservices account show `
-                --name $foundryResName `
-                --resource-group $foundryRg `
-                --query "{endpoint:properties.endpoints.\"OpenAI Language Model Instance API\"}" `
-                --output json 2>&1 | ConvertFrom-Json
-
-            $keys = az cognitiveservices account keys list `
-                --name $foundryResName `
-                --resource-group $foundryRg `
-                --output json 2>&1 | ConvertFrom-Json
-
-            $foundryEndpoint = Normalize-FoundryEndpoint ($newRes.endpoint ?? "https://${foundryResName}.openai.azure.com/")
-            $foundryApiKey = $keys.key1
-
-            Write-Log "Endpoint: $foundryEndpoint" 'INFO'
-            Write-Log 'API key retrieved.' 'INFO'
-
-            # List available models for deployment
-            Write-Host ""
-            Write-Log 'Querying available models for deployment...' 'STEP'
-
-            $availableModels = az cognitiveservices account list-models `
-                --name $foundryResName `
-                --resource-group $foundryRg `
-                --output json 2>&1 | ConvertFrom-Json
-
-            # Filter to chat completion models with GlobalStandard SKU
-            $chatModels = @()
-            foreach ($m in $availableModels) {
-                if ($m.format -ne 'OpenAI') { continue }
-                $caps = $m.capabilities
-                if (-not $caps -or $caps.chatCompletion -ne 'true') { continue }
-                $hasGlobalStandard = ($m.skus | Where-Object { $_.name -match 'GlobalStandard|Standard' }) -ne $null
-                if (-not $hasGlobalStandard) { continue }
-                # Prefer latest version of each model name
-                $existing = $chatModels | Where-Object { $_.name -eq $m.name }
-                if ($existing) {
-                    # Keep newer version
-                    if ($m.version -gt $existing.version) {
-                        $chatModels = @($chatModels | Where-Object { $_.name -ne $m.name }) + @($m)
-                    }
-                }
-                else {
-                    $chatModels += $m
-                }
-            }
-
-            # Suggest popular models first
-            $popularNames = @('gpt-4.1', 'gpt-4.1-mini', 'gpt-5.1-chat', 'gpt-5.4-mini', 'gpt-5', 'o4-mini')
-            $sortedModels = @()
-            foreach ($pn in $popularNames) {
-                $match = $chatModels | Where-Object { $_.name -eq $pn }
-                if ($match) { $sortedModels += $match }
-            }
-            # Add remaining
-            foreach ($cm in $chatModels) {
-                if ($cm.name -notin $popularNames) { $sortedModels += $cm }
-            }
-
-            if ($sortedModels.Count -eq 0) {
-                Write-Host "  No deployable chat models found in this region." -ForegroundColor Yellow
-            }
-            else {
-                $modelNames = $sortedModels | ForEach-Object { $_.name }
-                $modelDescs = $sortedModels | ForEach-Object { "(v$($_.version))" }
-
-                $selectedModels = Read-MultiChoice -Prompt "  Select models to deploy:" `
-                    -Options $modelNames -Descriptions $modelDescs
-
-                Write-Host ""
-                $deployedModels = @()
-
-                foreach ($modelName in $selectedModels) {
-                    $modelInfo = $sortedModels | Where-Object { $_.name -eq $modelName } | Select-Object -First 1
-                    $skuName = 'GlobalStandard'
-                    $hasSku = $modelInfo.skus | Where-Object { $_.name -eq 'GlobalStandard' }
-                    if (-not $hasSku) {
-                        $skuName = ($modelInfo.skus | Select-Object -First 1).name
-                    }
-
-                    Write-Log "Deploying model '$modelName' (sku=$skuName)..." 'STEP'
-                    az cognitiveservices account deployment create `
-                        --name $foundryResName `
-                        --resource-group $foundryRg `
-                        --deployment-name $modelName `
-                        --model-name $modelName `
-                        --model-version $modelInfo.version `
-                        --model-format OpenAI `
-                        --sku-capacity 10 `
-                        --sku-name $skuName `
-                        --output none 2>&1
-
-                    if ($LASTEXITCODE -eq 0) {
-                        Write-Host "  [OK] $modelName deployed." -ForegroundColor Green
-                        $deployedModels += $modelName
-                    }
-                    else {
-                        Write-Host "  [WARN] Failed to deploy $modelName (may not be available in $foundryLocation)." -ForegroundColor Yellow
-                    }
-                }
-
-                if ($deployedModels.Count -gt 0) {
-                    Write-Host ""
-                    Write-Log 'Configuring deployed models on VM...' 'STEP'
-                    try {
-                        $result = Deploy-FoundryConfigToVM `
-                            -Endpoint $foundryEndpoint `
-                            -ApiKey $foundryApiKey `
-                            -Models $deployedModels `
-                            -VmResourceGroup $ResourceGroup `
-                            -VmName $vmName `
-                            -AdminUsername $deployedAdminUsername
-
-                        if ($result -match 'OK:') {
-                            Write-Host "  [OK] $($result -split "`n" | Select-String 'OK:' | Select-Object -First 1)" -ForegroundColor Green
-                            Write-Host "  $($result -split "`n" | Select-String 'Gateway:' | Select-Object -First 1)" -ForegroundColor Green
-                            $configureFoundry = $true
-
-                            $envFile = Join-Path $logDir '.env'
-                            Add-Content -Path $envFile -Value "FOUNDRY_RESOURCE=$foundryResName"
-                            Add-Content -Path $envFile -Value "FOUNDRY_RESOURCE_GROUP=$foundryRg"
-                            Add-Content -Path $envFile -Value "FOUNDRY_ENDPOINT=$foundryEndpoint"
-                            Add-Content -Path $envFile -Value "FOUNDRY_MODELS=$($deployedModels -join ',')"
-                            Add-Content -Path $envFile -Value "FOUNDRY_DEFAULT_MODEL=azure-openai/$($deployedModels[0])"
-                        }
-                        else {
-                            Write-Host "  [WARN] VM configuration may have failed:" -ForegroundColor Yellow
-                            Write-Host "  $result" -ForegroundColor Gray
-                        }
-                    }
-                    catch {
-                        Write-Host "  [WARN] Failed to configure VM: $_" -ForegroundColor Yellow
-                    }
-                }
-                else {
-                    Write-Host "  No models were deployed successfully." -ForegroundColor Yellow
-                }
-            }
-        }
-    }
-
-    # =========================================================
-    # Mode 3: Manual input (original flow)
-    # =========================================================
-    elseif ($foundryMode -eq '3') {
-        Write-Host ""
-        $foundryEndpoint = Read-Host "  Foundry Endpoint URL (e.g. https://xxx.openai.azure.com)"
-
-        if (-not [string]::IsNullOrWhiteSpace($foundryEndpoint)) {
-            $foundryEndpoint = Normalize-FoundryEndpoint $foundryEndpoint
-
-            $foundryApiKey = Read-Host "  API Key"
-            if (-not [string]::IsNullOrWhiteSpace($foundryApiKey)) {
-                Write-Host ""
-                Write-Host "  Enter model deployment names (comma-separated)."
-                Write-Host "  Common models: gpt-4.1, gpt-4.1-mini, gpt-5.1-chat, DeepSeek-V3.2"
-                $modelInput = Read-Host "  Models"
-
-                if (-not [string]::IsNullOrWhiteSpace($modelInput)) {
-                    $foundryModels = $modelInput -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
-                    if ($foundryModels.Count -gt 0) {
-                        Write-Host ""
-                        Write-Host "  Endpoint: $foundryEndpoint" -ForegroundColor Cyan
-                        Write-Host "  Models:   $($foundryModels -join ', ')" -ForegroundColor Cyan
-                        Write-Host ""
-
-                        Write-Log 'Deploying Foundry configuration to VM...' 'STEP'
-                        try {
-                            $result = Deploy-FoundryConfigToVM `
-                                -Endpoint $foundryEndpoint `
-                                -ApiKey $foundryApiKey `
-                                -Models $foundryModels `
-                                -VmResourceGroup $ResourceGroup `
-                                -VmName $vmName `
-                                -AdminUsername $deployedAdminUsername
-
-                            if ($result -match 'OK:') {
-                                Write-Host "  [OK] $($result -split "`n" | Select-String 'OK:' | Select-Object -First 1)" -ForegroundColor Green
-                                Write-Host "  $($result -split "`n" | Select-String 'Gateway:' | Select-Object -First 1)" -ForegroundColor Green
-                                $configureFoundry = $true
-
-                                $envFile = Join-Path $logDir '.env'
-                                Add-Content -Path $envFile -Value "FOUNDRY_ENDPOINT=$foundryEndpoint"
-                                Add-Content -Path $envFile -Value "FOUNDRY_MODELS=$($foundryModels -join ',')"
-                                Add-Content -Path $envFile -Value "FOUNDRY_DEFAULT_MODEL=azure-openai/$($foundryModels[0])"
-                            }
-                            else {
-                                Write-Host "  [WARN] Configuration may have failed:" -ForegroundColor Yellow
-                                Write-Host "  $result" -ForegroundColor Gray
-                            }
-                        }
-                        catch {
-                            Write-Host "  [WARN] Failed: $_" -ForegroundColor Yellow
-                        }
-                    }
-                }
-            }
-        }
-
-        if (-not $configureFoundry) {
-            Write-Host "  Skipped. Configure later via: scripts/setup-foundry-model.ps1" -ForegroundColor Gray
-        }
-    }
-
-    if ($configureFoundry) {
-        Write-Host ""
-        Write-Host "  AI model configuration complete." -ForegroundColor Green
-    }
-}
-
 # Stop transcript
 Stop-Transcript | Out-Null

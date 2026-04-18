@@ -26,7 +26,7 @@
 ## 一、前置条件
 
 - 已完成 Azure Claw 部署（参见主 [README](../../README.md)）
-- 已配置 AI 模型提供商（参见 [Microsoft Foundry 配置手册](guide-microsoft-foundry.md) 或使用其他提供商）
+- 已配置 AI 模型提供商（运行 `openclaw onboard` 配置 OpenAI / Anthropic / Azure OpenAI 等）
 - 已通过 SSH (Ubuntu) 或 RDP (Windows) 连接到 VM
 - **必须启用 `-EnablePublicHttps`**（Teams Webhook 要求 HTTPS 端点）或有其他方式暴露 HTTPS 端点
 - 拥有 Azure AD（Microsoft Entra ID）管理权限（创建 App Registration）

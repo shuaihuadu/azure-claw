@@ -22,7 +22,7 @@ This guide explains how to connect **Slack** to the OpenClaw Gateway, allowing y
 ## 1. Prerequisites
 
 - Azure Claw deployment completed (see main [README](../../README.md))
-- AI model provider configured (see [Microsoft Foundry configuration guide](guide-microsoft-foundry.md) or use another provider)
+- AI model provider configured (run `openclaw onboard` to set up OpenAI / Anthropic / Azure OpenAI / etc.)
 - Slack Workspace admin permission (or ability to request admin approval for App installation)
 - VM's port 18789 accessible from the internet (NSG configured)
 

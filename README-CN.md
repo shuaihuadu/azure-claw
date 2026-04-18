@@ -37,8 +37,6 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 
 点击按钮，在 Azure Portal 中填写参数即可。
 
-> 将 **Enable Foundry** 设为 `true`，部署时会自动创建 Azure AI 资源并部署模型（默认: gpt-4.1），无需部署后手动配置。如需将 Foundry 配置到 OpenClaw，请参阅 [配置 Microsoft Foundry 模型](docs/zh/guide-microsoft-foundry.md)。
-
 > **注意**: Deploy to Azure 按钮需要仓库为 **公开仓库**，且已生成 ARM 模板：
 > ```powershell
 > az bicep build --file infra/main.bicep --outfile infra/azuredeploy.json
@@ -54,7 +52,7 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 .\deploy.ps1
 
 # 自定义参数部署（跳过交互）
-.\.deploy.ps1 -Location eastasia -VmSize Standard_B2as_v2 -OsType Ubuntu -AdminUsername azureclaw -AdminPassword "YourP@ssw0rd!"
+.\deploy.ps1 -Location eastasia -VmSize Standard_B2as_v2 -OsType Ubuntu -AdminUsername azureclaw -AdminPassword "YourP@ssw0rd!"
 
 # 指定资源组名称
 .\deploy.ps1 -ResourceGroup my-rg -Location eastasia
@@ -66,13 +64,7 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 .\deploy.ps1 -EnablePublicHttps
 ```
 
-部署完成后，交互模式会提示配置 **AI 模型**，提供三种方式：
-
-1. **选择现有 Azure AI 资源** — 自动获取 endpoint、API key、已部署模型
-2. **创建新 Foundry 资源** — 自动创建资源并部署模型
-3. **手动输入** — 提供 endpoint、API key、模型名称
-
-也可以跳过，后续通过 `scripts/setup-foundry-model.ps1` 单独配置。
+部署完成后，SSH 进入 VM 运行 `openclaw onboard`，交互式配置 AI 模型提供商（OpenAI / Anthropic / Azure OpenAI 等）和消息通道。
 
 > **提示**: 不带任何参数运行 `.\deploy.ps1` 会进入交互式引导模式，自动查询你的 Azure 订阅中可用的区域和 VM 规格，避免选到不可用的资源。
 
@@ -196,14 +188,10 @@ azure-claw/
 │   └── copilot-instructions.md      # Copilot 开发指引
 ├── docs/                            # 操作手册
 │   ├── zh/                          # 中文文档
-│   │   ├── guide-microsoft-foundry.md    # 配置 Azure OpenAI / Microsoft Foundry 模型
-│   │   ├── guide-model-troubleshooting.md # 模型兼容性排障手册
 │   │   ├── guide-operations.md          # 运维手册（服务排查、重启、日志、升级等）
 │   │   ├── guide-slack.md               # 配置 Slack 通道
 │   │   └── guide-teams.md               # 配置 Microsoft Teams 通道
 │   └── en/                          # English documentation
-│       ├── guide-microsoft-foundry.md
-│       ├── guide-model-troubleshooting.md
 │       ├── guide-operations.md
 │       ├── guide-slack.md
 │       └── guide-teams.md
@@ -212,14 +200,12 @@ azure-claw/
 │   ├── azuredeploy.json             # ARM 模板（由 Bicep 生成，供一键部署）
 │   ├── main.parameters.json         # 参数文件
 │   └── modules/
-│       ├── foundry.bicep            # Azure AI 服务 + 模型部署（可选）
 │       ├── network.bicep            # VNet / NSG / Public IP
 │       ├── vm-ubuntu.bicep          # Ubuntu VM 模块
 │       └── vm-windows.bicep         # Windows VM 模块
 ├── scripts/
 │   ├── install-openclaw-ubuntu.sh   # Ubuntu 安装脚本
 │   ├── install-openclaw-windows.ps1 # Windows 安装脚本
-│   ├── setup-foundry-model.ps1      # 独立 Foundry 模型配置工具
 │   └── shared-functions.ps1         # 共享 PowerShell 辅助函数
 ├── deploy.ps1                       # 部署入口脚本
 ├── destroy.ps1                      # 资源清理脚本
@@ -294,10 +280,8 @@ wsl -d Ubuntu -- bash -c "sudo systemctl restart openclaw"
 
 部署完成后，参考以下指南配置 AI 模型和消息通道：
 
-- [配置 Azure OpenAI / Microsoft Foundry 模型](docs/zh/guide-microsoft-foundry.md) — 使用 Azure 托管的 GPT-4.1 等模型
 - [配置 Slack 消息通道](docs/zh/guide-slack.md) — 在 Slack 中与 AI 助手对话
 - [配置 Microsoft Teams 消息通道](docs/zh/guide-teams.md) — 在 Teams 中与 AI 助手对话（提供半自动化配置脚本 `setup-teams.ps1`）
-- [模型兼容性排障](docs/zh/guide-model-troubleshooting.md) — Responses API vs Chat Completions 选型、常见错误排查
 - [运维手册](docs/zh/guide-operations.md) — 服务排查、重启、日志查看、升级、备份、安全巡检等日常运维操作
 
 ## 参考链接

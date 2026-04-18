@@ -20,19 +20,14 @@ New-Item -ItemType Directory -Path $openclawDir -Force | Out-Null
 $logFile = "$openclawDir\phase1.log"
 function Log { param($msg) $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $msg"; Add-Content $logFile $line; Write-Host $line }
 
-# OpenClaw installer for Windows 11 (via WSL2)
-# Phase 1: Enable WSL2, optionally install Caddy, register post-reboot setup task, reboot
-# Phase 2: After reboot, the scheduled task installs Node.js + OpenClaw in WSL
-
 Log "=== OpenClaw installer for Windows 11 (Phase 1) ==="
 Log "Public HTTPS: $EnablePublicHttps"
 
-# 1. Install WSL2 with Ubuntu (handles feature enablement automatically on Win11)
-# Idempotent: wsl --install is safe to re-run; --no-launch prevents interactive prompt
+# 1. Install WSL2 with Ubuntu
 Log ">>> Installing WSL2 with Ubuntu..."
 wsl --install --distribution Ubuntu --no-launch
 
-# 2. Configure Windows Firewall (idempotent: remove then re-add to avoid duplicate rules)
+# 2. Configure Windows Firewall
 Log ">>> Configuring Windows Firewall..."
 Remove-NetFirewallRule -DisplayName "OpenClaw Gateway" -ErrorAction SilentlyContinue
 New-NetFirewallRule -DisplayName "OpenClaw Gateway" `
@@ -51,13 +46,11 @@ if ($EnablePublicHttps) {
         -Action Allow `
         -Profile Any
 
-    # Download Caddy binary
     Log ">>> Downloading Caddy..."
     $caddyDir = "C:\caddy"
     New-Item -ItemType Directory -Path $caddyDir -Force | Out-Null
     Invoke-WebRequest -Uri "https://caddyserver.com/api/download?os=windows&arch=amd64" -OutFile "$caddyDir\caddy.exe" -UseBasicParsing
 
-    # Write Caddyfile
     Log ">>> Writing Caddyfile..."
     Set-Content -Path "$caddyDir\Caddyfile" -Value @"
 $Fqdn {
@@ -72,9 +65,6 @@ $configContent = @"
 EnablePublicHttps=$($EnablePublicHttps.ToString())
 GatewayPassword=$GatewayPassword
 Fqdn=$Fqdn
-FoundryEndpoint=$FoundryEndpoint
-FoundryApiKey=$FoundryApiKey
-FoundryModels=$FoundryModels
 "@
 Set-Content -Path "$openclawDir\config.txt" -Value $configContent -Encoding UTF8
 
@@ -87,7 +77,6 @@ $logFile = "C:\openclaw\phase2.log"
 
 function Log { param($msg) Add-Content $logFile "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $msg" }
 
-# Idempotency: skip if Phase 2 already completed successfully
 if (Test-Path "C:\openclaw\phase2.done") {
     Add-Content $logFile "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') Phase 2 already completed. Skipping."
     Unregister-ScheduledTask -TaskName "OpenClawSetup" -Confirm:$false -ErrorAction SilentlyContinue
@@ -96,7 +85,6 @@ if (Test-Path "C:\openclaw\phase2.done") {
 
 Log "=== OpenClaw post-reboot setup (Phase 2) started ==="
 
-# Read config from Phase 1
 $config = @{}
 Get-Content "C:\openclaw\config.txt" | ForEach-Object {
     $parts = $_ -split '=', 2
@@ -105,12 +93,8 @@ Get-Content "C:\openclaw\config.txt" | ForEach-Object {
 $enableHttps = $config['EnablePublicHttps'] -eq 'True'
 $gwPassword = $config['GatewayPassword']
 $fqdn = $config['Fqdn']
-$foundryEndpoint = $config['FoundryEndpoint']
-$foundryApiKey = $config['FoundryApiKey']
-$foundryModels = $config['FoundryModels']
-Log "Config: EnablePublicHttps=$enableHttps, Fqdn=$fqdn, Foundry=$([bool]$foundryEndpoint)"
+Log "Config: EnablePublicHttps=$enableHttps, Fqdn=$fqdn"
 
-# Wait for WSL to be ready
 $maxRetries = 30
 for ($i = 0; $i -lt $maxRetries; $i++) {
     $status = wsl --status 2>&1
@@ -119,11 +103,9 @@ for ($i = 0; $i -lt $maxRetries; $i++) {
     Start-Sleep -Seconds 10
 }
 
-# Initialize Ubuntu distro with a default user (avoids root-only default)
 Log "Initializing Ubuntu distro..."
 $wslUser = "openclaw"
 wsl -d Ubuntu -- bash -c "id -u $wslUser 2>/dev/null || (useradd -m -s /bin/bash $wslUser && echo '${wslUser} ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/$wslUser)"
-# Set as default user for this distro
 $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss"
 Get-ChildItem $regPath -ErrorAction SilentlyContinue | ForEach-Object {
     $distroName = (Get-ItemProperty $_.PSPath).DistributionName
@@ -135,26 +117,17 @@ Get-ChildItem $regPath -ErrorAction SilentlyContinue | ForEach-Object {
 wsl -d Ubuntu -u $wslUser -- bash -c "echo 'Ubuntu ready as $wslUser'"
 Log "Ubuntu distro initialized with user: $wslUser"
 
-# Install Node.js 24 (idempotent: NodeSource setup + apt install is safe to re-run)
 Log "Installing Node.js 24..."
 wsl -d Ubuntu -u $wslUser -- bash -c "curl -fsSL https://deb.nodesource.com/setup_24.x | sudo bash - && sudo apt-get install -y nodejs"
 Log "Node.js installed: $(wsl -d Ubuntu -u $wslUser -- node --version)"
 
-# Install OpenClaw (idempotent: npm install -g overwrites existing)
 Log "Installing OpenClaw..."
 wsl -d Ubuntu -u $wslUser -- bash -c "sudo npm install -g openclaw@latest"
 Log "OpenClaw installed"
 
-# Create config (idempotent: always overwrite with correct config)
-# Use PowerShell hashtable → JSON for safe handling of special characters in password
 Log "Creating OpenClaw configuration..."
-$defaultModel = "anthropic/claude-opus-4-6"
-if ($foundryEndpoint -and $foundryModels) {
-    $firstModel = ($foundryModels -split ',')[0].Trim()
-    $defaultModel = "azure-openai/$firstModel"
-}
 $configObj = @{
-    agents = @{ defaults = @{ model = @{ primary = $defaultModel } } }
+    agents = @{ defaults = @{ model = @{ primary = "anthropic/claude-opus-4-6" } } }
     gateway = @{ mode = "local" }
 }
 if ($enableHttps -and $fqdn) {
@@ -164,35 +137,11 @@ if ($enableHttps -and $fqdn) {
 if ($gwPassword) {
     $configObj.gateway.remote = @{ password = $gwPassword }
 }
-if ($foundryEndpoint -and $foundryApiKey -and $foundryModels) {
-    $modelList = $foundryModels -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-    $modelEntries = @()
-    $defaultsModels = @{}
-    foreach ($mid in $modelList) {
-        $modelEntries += @{
-            id = $mid; name = $mid; reasoning = $false
-            input = @("text"); cost = @{ input = 0; output = 0; cacheRead = 0; cacheWrite = 0 }
-            contextWindow = 131072; maxTokens = 16384
-        }
-        $defaultsModels["azure-openai/$mid"] = @{}
-    }
-    $configObj.models = @{
-        providers = @{
-            "azure-openai" = @{
-                baseUrl = $foundryEndpoint; apiKey = $foundryApiKey
-                api = "openai-completions"; headers = @{ "api-key" = $foundryApiKey }
-                authHeader = $false; models = $modelEntries
-            }
-        }
-    }
-    $configObj.agents.defaults.models = $defaultsModels
-}
 $configJson = $configObj | ConvertTo-Json -Depth 5
 wsl -d Ubuntu -u $wslUser -- bash -c "mkdir -p ~/.openclaw && cat > ~/.openclaw/openclaw.json << 'HEREDOC'
 $configJson
 HEREDOC"
 
-# Create systemd service in WSL
 Log "Configuring systemd service..."
 $bindMode = if ($enableHttps) { "loopback" } else { "lan" }
 $execCmd = "/usr/local/bin/openclaw gateway run --port 18789 --bind $bindMode --auth password"
@@ -219,20 +168,16 @@ $unit | wsl -d Ubuntu -u root -- bash -c "tee /etc/systemd/system/openclaw.servi
 wsl -d Ubuntu -u root -- bash -c "systemctl daemon-reload && systemctl enable openclaw.service && systemctl start openclaw.service"
 Log "OpenClaw service started"
 
-# Create a port-proxy refresh script (handles WSL IP changes across reboots)
 Log "Creating port proxy refresh script..."
 $listenAddr = if ($enableHttps) { "127.0.0.1" } else { "0.0.0.0" }
 $portProxyScript = @"
 `$ErrorActionPreference = 'SilentlyContinue'
-# Wait for WSL to be ready
 for (`$i = 0; `$i -lt 20; `$i++) {
     `$status = wsl --status 2>&1
     if (`$LASTEXITCODE -eq 0) { break }
     Start-Sleep -Seconds 5
 }
-# Ensure Ubuntu distro is running
 wsl -d Ubuntu -u $wslUser -- bash -c "echo ready" 2>&1 | Out-Null
-# Get current WSL IP and refresh port proxy
 `$wslIp = wsl -d Ubuntu -u $wslUser -- bash -c "hostname -I" | ForEach-Object { `$_.Trim().Split(' ')[0] }
 if (`$wslIp) {
     netsh interface portproxy delete v4tov4 listenport=18789 listenaddress=$listenAddr 2>&1 | Out-Null
@@ -241,7 +186,6 @@ if (`$wslIp) {
 "@
 Set-Content -Path "C:\openclaw\refresh-portproxy.ps1" -Value $portProxyScript -Encoding UTF8
 
-# Run port proxy now
 $wslIp = wsl -d Ubuntu -u $wslUser -- bash -c "hostname -I" | ForEach-Object { $_.Trim().Split(' ')[0] }
 if ($wslIp) {
     netsh interface portproxy delete v4tov4 listenport=18789 listenaddress=$listenAddr 2>&1 | Out-Null
@@ -249,14 +193,12 @@ if ($wslIp) {
     Log "Port proxy: ${listenAddr}:18789 -> WSL(${wslIp}):18789"
 }
 
-# Register scheduled task to refresh port proxy on every startup (WSL IP may change)
 $ppAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File C:\openclaw\refresh-portproxy.ps1"
 $ppTrigger = New-ScheduledTaskTrigger -AtStartup
 $ppPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 Register-ScheduledTask -TaskName "OpenClawPortProxy" -Action $ppAction -Trigger $ppTrigger -Principal $ppPrincipal -Force
 Log "Port proxy refresh task registered for startup"
 
-# Start Caddy if HTTPS is enabled
 if ($enableHttps -and (Test-Path "C:\caddy\caddy.exe")) {
     Log "Starting Caddy reverse proxy..."
     $caddyAction = New-ScheduledTaskAction -Execute "C:\caddy\caddy.exe" -Argument "run --config C:\caddy\Caddyfile"
@@ -267,10 +209,8 @@ if ($enableHttps -and (Test-Path "C:\caddy\caddy.exe")) {
     Log "Caddy started for HTTPS on $fqdn"
 }
 
-# Mark Phase 2 as complete (idempotency sentinel)
 Set-Content -Path "C:\openclaw\phase2.done" -Value "$(Get-Date -Format 'yyyy-MM-ddTHH:mm:ss')" -Encoding UTF8
 
-# Clean up
 Remove-Item "C:\openclaw\config.txt" -ErrorAction SilentlyContinue
 Unregister-ScheduledTask -TaskName "OpenClawSetup" -Confirm:$false -ErrorAction SilentlyContinue
 Log "=== OpenClaw setup complete ==="

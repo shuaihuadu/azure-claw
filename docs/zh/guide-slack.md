@@ -22,7 +22,7 @@
 ## 一、前置条件
 
 - 已完成 Azure Claw 部署（参见主 [README](../../README.md)）
-- 已配置 AI 模型提供商（参见 [Microsoft Foundry 配置手册](guide-microsoft-foundry.md) 或使用其他提供商）
+- 已配置 AI 模型提供商（运行 `openclaw onboard` 配置 OpenAI / Anthropic / Azure OpenAI 等）
 - 拥有 Slack Workspace 管理员权限（或可请求管理员批准 App 安装）
 - VM 的 18789 端口可从公网访问（NSG 已配置）
 

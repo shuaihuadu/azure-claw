@@ -19,24 +19,58 @@ This document covers day-to-day operations for OpenClaw on Azure VMs, including 
 9. [Backup & Restore](#9-backup--restore)
 10. [Security Audit](#10-security-audit)
 11. [Quick Troubleshooting Table](#11-quick-troubleshooting-table)
+12. [Device Pairing Management](#12-device-pairing-management)
 
 ---
 
 ## 1. Service Status Check
 
-### Ubuntu
+### OpenClaw CLI (recommended, cross-platform)
+
+OpenClaw ships a cross-platform operator command set that does not rely on systemd:
 
 ```bash
-# Check OpenClaw Gateway status
+# Quick local overview (gateway reachability, models, channels, recent activity)
+$ openclaw status
+$ openclaw status --all       # full local diagnosis (safe to paste)
+$ openclaw status --deep      # asks the gateway for a live health probe
+
+# Gateway control
+$ openclaw gateway status     # gateway process status
+$ openclaw gateway status --deep  # also scans system services (launchd/systemd/schtasks)
+$ openclaw gateway restart    # restart
+$ openclaw gateway stop       # stop
+$ openclaw gateway install    # install as a supervised service
+$ openclaw gateway probe      # probe gateway reachability
+
+# Dedicated health command
+$ openclaw health             # gateway snapshot (WS, low overhead)
+$ openclaw health --verbose   # force live probe
+$ openclaw health --json      # machine-readable
+
+# Repair and migrations (config, state dir, services)
+$ openclaw doctor             # read-only diagnosis + interactive fixes
+$ openclaw doctor --fix       # auto-apply config/state migrations
+$ openclaw doctor --repair    # silent repair (apply all recommended fixes)
+$ openclaw doctor --deep      # also scan for extra gateway installs
+
+# Logs
+$ openclaw logs --follow      # equivalent to tail -f
+
+# Channel health
+$ openclaw channels status --probe  # live per-account channel probe via gateway
+```
+
+### Ubuntu systemd layer
+
+```bash
+# OpenClaw Gateway systemd status
 $ sudo systemctl status openclaw
 
-# Output example (normal):
+# Output example (healthy):
 #   Active: active (running) since ...
-# Output example (abnormal):
+# Output example (unhealthy):
 #   Active: failed (Result: exit-code)
-
-# Check OpenClaw health
-$ openclaw doctor
 ```
 
 ### Windows (WSL)
@@ -46,31 +80,20 @@ $ openclaw doctor
 > wsl --list --verbose
 # STATE should be Running
 
-# Check OpenClaw service status inside WSL
-> wsl -d Ubuntu -- sudo systemctl status openclaw
+# Run the cross-platform CLI inside WSL
+> wsl -d Ubuntu -u openclaw -- openclaw status
+> wsl -d Ubuntu -u openclaw -- openclaw health
 
-# Check if Windows port proxy is active
+# Check Windows port proxy
 > netsh interface portproxy show v4tov4
 # Should include 18789 -> WSL IP mapping
-
-# Check OpenClaw health
-> wsl -d Ubuntu -- openclaw doctor
 ```
 
 ### Local macOS (LaunchAgent)
 
 ```bash
-# Check Gateway process
-$ ps aux | grep openclaw-gateway
-
-# Check LaunchAgent status
+# The cross-platform CLI above already covers this. Extra launchd layer:
 $ launchctl print gui/$(id -u)/ai.openclaw.gateway
-
-# Health check
-$ openclaw doctor
-
-# List configured models
-$ openclaw models list
 ```
 
 ---
@@ -159,18 +182,20 @@ $ journalctl -u caddy -f
 ### Local macOS
 
 ```bash
-# Gateway runtime log
-$ cat ~/.openclaw/logs/gateway.log
+# OpenClaw writes logs to /tmp/openclaw/ by default (rotated daily)
+$ ls /tmp/openclaw/
 
-# Gateway error log
-$ cat ~/.openclaw/logs/gateway.err.log
+# Follow today's log in real time
+$ tail -f /tmp/openclaw/openclaw-$(date +%Y-%m-%d).log
 
-# Follow in real-time
-$ tail -f ~/.openclaw/logs/gateway.log
+# Or use the built-in cross-platform CLI
+$ openclaw logs --follow
 
-# Config health log
-$ cat ~/.openclaw/logs/config-health.json
+# LaunchAgent stdout/stderr paths (if redirected):
+$ cat ~/Library/Logs/openclaw/gateway.log 2>/dev/null || echo 'check launchctl print for actual paths'
 ```
+
+> Log path can be customised via `logging.file` in `openclaw.json`.
 
 ---
 
@@ -199,18 +224,39 @@ $ openclaw doctor
 
 ### Apply Config Changes
 
-After modifying the config file, you **must restart the Gateway** for changes to take effect:
+The Gateway watches `~/.openclaw/openclaw.json` by default (`gateway.reload.mode="hybrid"`) and hot-applies most changes automatically — **no manual restart needed for the majority of fields**.
+
+Hot reload semantics:
+
+| Change type                                                                                        | Needs restart? |
+| -------------------------------------------------------------------------------------------------- | -------------- |
+| Channels (`channels.*`, WhatsApp/Slack/Teams, etc.)                                                | No             |
+| Agent / models / routing (`agents`, `models`, `routing`)                                           | No             |
+| Sessions / messages / tools / media (`session`, `messages`, `tools`, `browser`, `skills`, `audio`) | No             |
+| Automation (`hooks`, `cron`, `agent.heartbeat`)                                                    | No             |
+| Gateway server (`gateway.port`, `gateway.bind`, `gateway.auth`, `gateway.tailscale`, TLS)          | **Yes**        |
+| Infrastructure (`discovery`, `canvasHost`, `plugins`)                                              | **Yes**        |
+
+In `hybrid` mode the Gateway auto-restarts for restart-required fields. For normal fields the change is virtually instant. Confirm a reload in the logs:
 
 ```bash
-# Ubuntu
-$ sudo systemctl restart openclaw
+$ journalctl -u openclaw -f | grep -i reload
+```
 
-# macOS
+If you do need to restart manually (e.g. after changing port or auth mode):
+
+```bash
+# Cross-platform (recommended)
 $ openclaw gateway restart
 
+# Or via systemd
+$ sudo systemctl restart openclaw
+
 # Windows (WSL)
-> wsl -d Ubuntu -- sudo systemctl restart openclaw
+> wsl -d Ubuntu -u openclaw -- openclaw gateway restart
 ```
+
+> [Rare case] Editing the `.service` unit file (not `openclaw.json`) still requires `sudo systemctl daemon-reload && sudo systemctl restart openclaw`.
 
 ### Common Config Change Examples
 
@@ -502,6 +548,60 @@ $ npm audit -g
 - [ ] API Keys are not hardcoded in scripts or code
 - [ ] `.env` files in `logs/` directory are not committed to Git
 
+### Gateway Control Token (`gateway.auth.token`)
+
+The control token is the shared secret used by remote clients (macOS app, `openclaw` CLI over SSH tunnel, iOS/Android nodes) to authenticate against the Gateway WebSocket. This project defaults to `password` mode paired with Caddy HTTPS. If you need to switch to `token` mode (for example to pair the macOS "Remote over SSH" app or iOS/Android nodes), use one of the methods below to obtain the token.
+
+#### 1. Use the token OpenClaw auto-generates
+
+```bash
+# Option A: onboard writes one by default — just read it
+$ jq -r '.gateway.auth.token' ~/.openclaw/openclaw.json
+
+# Option B: use the doctor subcommand to (re)generate one
+$ openclaw doctor --generate-gateway-token
+```
+
+The generated token is written to `gateway.auth.token` in `~/.openclaw/openclaw.json`. Restart the service so the new config takes effect:
+
+```bash
+$ sudo systemctl restart openclaw
+```
+
+#### 2. Set a custom token manually
+
+```bash
+# Generate a random 32-byte token
+$ TOKEN=$(openssl rand -base64 32)
+$ echo "$TOKEN"
+
+# Apply to config
+$ openclaw config set gateway.auth.mode token
+$ openclaw config set gateway.auth.token "$TOKEN"
+$ sudo systemctl restart openclaw
+```
+
+#### 3. How clients consume the token
+
+- **Environment variable**: `export OPENCLAW_GATEWAY_TOKEN="<token>"`
+- **CLI flag**: `openclaw gateway status --url ws://127.0.0.1:18789 --token <token>`
+- **Client config**: write `gateway.remote.token` in the client's local `~/.openclaw/openclaw.json`
+  ```bash
+  openclaw config set gateway.remote.token "<token>"
+  ```
+
+#### 4. Rotate the token
+
+Rotate immediately if you suspect the token has leaked:
+
+```bash
+$ openclaw doctor --generate-gateway-token   # generate new token
+$ sudo systemctl restart openclaw             # apply
+# Then update `gateway.remote.token` on every client (macOS app / CLI / nodes)
+```
+
+> ⚠️ Never commit the token to Git. It is an operator credential: anyone holding it can call `/v1/chat/completions`, `/tools/invoke`, and every other Gateway HTTP surface.
+
 ---
 
 ## 11. Quick Troubleshooting Table
@@ -512,6 +612,7 @@ $ npm audit -g
 | **`openclaw models list` errors**              | Invalid api type or missing models array in config       | Check provider's `api` field is valid (e.g., `openai-responses`); ensure `models` array exists                  |
 | **Web UI opens but model calls fail**          | Wrong API Key / endpoint unreachable / model ID mismatch | Test endpoint directly with `curl`; verify API Key; confirm model ID matches deployment name                    |
 | **Browser shows 401 Unauthorized**             | Gateway password auth enabled                            | Enter correct Gateway password (see `GATEWAY_PASSWORD` in `.env` file)                                          |
+| **Browser shows `origin not allowed`** | Accessing Control UI from a non-loopback origin not in `gateway.controlUi.allowedOrigins` | See [11.1 Control UI “origin not allowed”](#111-control-ui-origin-not-allowed) below |
 | **Slack/Teams messages no response**           | Channel not enabled / token expired / network issue      | Check channel config in `openclaw.json`; `openclaw doctor` to check channel status                              |
 | **WSL service unreachable after restart**      | WSL IP changed, port proxy stale                         | Run `C:\openclaw\refresh-portproxy.ps1`                                                                         |
 | **`npm install -g openclaw` permission error** | Ubuntu requires sudo                                     | Use `sudo npm install -g openclaw@latest`                                                                       |
@@ -521,21 +622,153 @@ $ npm audit -g
 
 ---
 
+### 11.1 Control UI “origin not allowed”
+
+**Symptom**: opening the Control UI in a browser shows
+
+```
+origin not allowed (open the Control UI from the gateway host or allow it in gateway.controlUi.allowedOrigins)
+```
+
+**Why**: by default the Gateway only trusts loopback origins (`http://127.0.0.1:18789`, `http://localhost:18789`). The moment you load the UI from a public IP, an Azure FQDN, the Caddy HTTPS hostname, or any reverse proxy, the Control UI rejects the origin as a security guard.
+
+**Recommended fixes (most secure first)**:
+
+#### Option A: SSH tunnel (most secure, best for daily use)
+
+From your laptop:
+
+```bash
+ssh -N -L 18789:127.0.0.1:18789 <ADMIN_USERNAME>@<VM_PUBLIC_IP>
+```
+
+Then open <http://127.0.0.1:18789/>. From the Gateway's perspective the request is loopback — no allowlist edit required.
+
+#### Option B: Allow your browser origin (Caddy HTTPS / public-access deployments)
+
+SSH into the VM and run:
+
+```bash
+# Single origin
+openclaw config set gateway.controlUi.allowedOrigins '["https://openclaw-xxxx.japaneast.cloudapp.azure.com"]'
+
+# Multiple origins
+openclaw config set gateway.controlUi.allowedOrigins \
+  '["https://openclaw-xxxx.japaneast.cloudapp.azure.com", "https://chat.example.com"]'
+```
+
+Or edit `~/.openclaw/openclaw.json` directly:
+
+```jsonc
+{
+  "gateway": {
+    "controlUi": {
+      "enabled": true,
+      // List every origin (scheme + host + port) you'll load the UI from in a browser.
+      "allowedOrigins": [
+        "https://openclaw-xxxx.japaneast.cloudapp.azure.com",
+        "http://20.48.19.109:18789"
+      ]
+    }
+  }
+}
+```
+
+Gateway hot-reload picks it up (`gateway.reload.mode` defaults to `hybrid`). If it doesn't, restart manually:
+
+```bash
+openclaw gateway restart
+# or
+sudo systemctl restart openclaw
+```
+
+Verify:
+
+```bash
+openclaw config get gateway.controlUi.allowedOrigins
+```
+
+#### Three common pitfalls
+
+1. **Origins must match exactly**: `scheme://host[:port]`, no trailing slash. `https://example.com` is not the same as `https://example.com/`. `https://example.com` and `https://example.com:443` are equivalent, but prefer the bare form.
+2. **HTTP and HTTPS are different origins**: if Caddy is doing TLS, allow only `https://...` — don't also add `http://...:18789` unless you actually need both reachable.
+3. **Don't reach for `dangerouslyAllowHostHeaderOriginFallback`**: it lets the Control UI trust whatever appears in the Host header, which can be spoofed behind a misconfigured proxy. Only use it if you fully control the proxy/ingress chain.
+
+#### Caddy HTTPS shortcut
+
+If you deployed with `deploy.ps1 -EnablePublicHttps` the FQDN is in your `.env` file:
+
+```bash
+FQDN=<your FQDN from .env>
+openclaw config set gateway.controlUi.allowedOrigins "[\"https://$FQDN\"]"
+openclaw gateway restart
+```
+
+---
+
+## 12. Device Pairing Management
+
+OpenClaw Gateway requires a per-browser/per-client **device pairing** approval. Even after entering the password, the browser must be approved on the server side before it can access the Control UI.
+
+### 12.1 First-time pairing flow
+
+1. Open the Control UI in your browser (`https://<FQDN>` or `http://<IP>:18789`), enter `GATEWAY_PASSWORD`, click connect
+2. Browser shows `pairing required` / "waiting for server approval"
+3. SSH into the VM (Windows: `wsl -d Ubuntu -u openclaw -- ...`) and run:
+
+```bash
+openclaw devices approve --latest
+```
+
+4. Browser auto-connects.
+
+### 12.2 Common commands
+
+```bash
+openclaw devices list                    # list all paired devices
+openclaw devices list --pending          # only pending requests
+openclaw devices approve --latest        # approve the latest request
+openclaw devices approve <id>            # approve a specific request
+openclaw devices remove <id>             # revoke one device
+openclaw devices remove --all            # wipe all (every client must re-pair)
+```
+
+### 12.3 When you need to re-pair
+
+Pairing is bound to a device token stored in browser local storage. The following situations lose the token and require a fresh approval:
+
+- Switching browsers or devices
+- Private / incognito windows
+- Manually clearing site data, cookies, or LocalStorage
+- Browser reinstall or different OS user profile
+- Server-side `openclaw devices remove`
+
+### 12.4 Troubleshooting
+
+- **Browser stuck at "pairing required"**: server hasn't approved, or the gateway didn't push the event. Refresh the browser.
+- **`openclaw devices list --pending` is empty**: the request never reached the gateway. Check that origin isn't being blocked (§11.1) and the password is correct.
+- **Don't try to reuse a device record across people**: device tokens are private credentials. Sharing one means anyone with it can act as that device.
+
+---
+
 ## Quick Command Reference
 
 ```bash
-# ---- Ubuntu one-liner reference ----
+# ---- Cross-platform OpenClaw CLI (recommended) ----
+openclaw status                         # Local overview
+openclaw status --deep                  # Live gateway probe
+openclaw health --json                  # Structured health snapshot
+openclaw gateway restart                # Restart gateway
+openclaw gateway status                 # Gateway status
+openclaw doctor                         # Diagnose
+openclaw doctor --repair                # Silent repair
+openclaw logs --follow                  # Follow logs
+openclaw channels status --probe        # Channel probe
+openclaw models list                    # List models
+npm install -g openclaw@latest          # Upgrade (Ubuntu needs sudo)
+
+# ---- Ubuntu systemd layer ----
 sudo systemctl status openclaw          # Status
 sudo systemctl restart openclaw         # Restart
-journalctl -u openclaw -f               # Real-time logs
-openclaw doctor                         # Health check
-openclaw models list                    # Model list
-sudo npm install -g openclaw@latest     # Upgrade
-
-# ---- macOS one-liner reference ----
-openclaw gateway restart                # Restart
-openclaw doctor                         # Health check
-openclaw models list                    # Model list
-tail -f ~/.openclaw/logs/gateway.log    # Real-time logs
-npm install -g openclaw@latest          # Upgrade
+journalctl -u openclaw -f               # Follow logs
 ```

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "16085762845239508033"
+      "templateHash": "4195943980007991380"
     }
   },
   "parameters": {
@@ -60,32 +60,11 @@
       "metadata": {
         "description": "Gateway password for authentication (required when enablePublicHttps is true)"
       }
-    },
-    "enableFoundry": {
-      "type": "bool",
-      "defaultValue": false,
-      "metadata": {
-        "description": "Enable automatic Microsoft Foundry (Azure AI) resource creation and model deployment"
-      }
-    },
-    "foundryModelName": {
-      "type": "string",
-      "defaultValue": "gpt-4.1",
-      "metadata": {
-        "description": "Model to deploy when enableFoundry is true"
-      }
-    },
-    "foundryLocation": {
-      "type": "string",
-      "defaultValue": "eastus",
-      "metadata": {
-        "description": "Azure region for Foundry (AI Services) resource. Not all regions support all models; eastus has the broadest model availability. The VM and AI resource do not need to be in the same region when using GlobalStandard SKU."
-      }
     }
   },
   "variables": {
-    "ubuntuScriptContent": "#!/bin/bash\nset -euo pipefail\n\n# Ensure log directory exists\nmkdir -p /var/log/openclaw\n\n# Log all output to file and console\nexec > >(tee /var/log/openclaw/install.log) 2>&1\n\nlog() {\n  echo \"[$(date '+%Y-%m-%d %H:%M:%S')] $*\"\n}\n\n# Usage: install-openclaw-ubuntu.sh <admin_username> [enable_public_https] [gateway_password_b64] [fqdn] [foundry_endpoint] [foundry_api_key] [foundry_models]\nADMIN_USER=\"${1:-azureclaw}\"\nENABLE_PUBLIC_HTTPS=\"${2:-false}\"\nGATEWAY_PASSWORD_B64=\"${3:-}\"\nFQDN=\"${4:-}\"\nFOUNDRY_ENDPOINT=\"${5:-}\"\nFOUNDRY_API_KEY=\"${6:-}\"\nFOUNDRY_MODELS=\"${7:-}\"\nADMIN_HOME=\"/home/${ADMIN_USER}\"\n\n# Decode base64 gateway password\nGATEWAY_PASSWORD=\"\"\nif [ -n \"${GATEWAY_PASSWORD_B64}\" ]; then\n  GATEWAY_PASSWORD=$(echo \"${GATEWAY_PASSWORD_B64}\" | base64 -d)\nfi\n\nlog \"=== OpenClaw installer for Ubuntu ===\"\nlog \"Admin user: ${ADMIN_USER}\"\nlog \"Public HTTPS: ${ENABLE_PUBLIC_HTTPS}\"\n\n# 1. Update system packages\nlog \">>> Updating system packages...\"\napt-get update\nDEBIAN_FRONTEND=noninteractive apt-get upgrade -y\n\n# 2. Install dependencies\nlog \">>> Installing dependencies...\"\nDEBIAN_FRONTEND=noninteractive apt-get install -y curl git build-essential\n\n# 3. Install Node.js 24 via NodeSource\nlog \">>> Installing Node.js 24...\"\ncurl -fsSL https://deb.nodesource.com/setup_24.x | bash -\nDEBIAN_FRONTEND=noninteractive apt-get install -y nodejs\n\nlog \"Node.js version: $(node --version)\"\nlog \"npm version: $(npm --version)\"\n\n# 4. Install OpenClaw globally\nlog \">>> Installing OpenClaw...\"\nnpm install -g openclaw@latest\n\n# 5. Create OpenClaw config directory and default config\nlog \">>> Creating OpenClaw configuration...\"\nmkdir -p \"${ADMIN_HOME}/.openclaw\"\n\n# Build config with gateway mode; use Python for safe JSON generation (handles special chars in password)\nlog \">>> Creating OpenClaw configuration...\"\nmkdir -p \"${ADMIN_HOME}/.openclaw\"\n\npython3 - \"${ADMIN_HOME}/.openclaw/openclaw.json\" \"${ENABLE_PUBLIC_HTTPS}\" \"${FQDN}\" \"${GATEWAY_PASSWORD}\" \"${FOUNDRY_ENDPOINT}\" \"${FOUNDRY_API_KEY}\" \"${FOUNDRY_MODELS}\" <<'PYEOF'\nimport json, sys\nconfig_path = sys.argv[1]\nhttps_enabled = sys.argv[2]\nfqdn = sys.argv[3]\ngw_password = sys.argv[4]\nfoundry_endpoint = sys.argv[5]\nfoundry_api_key = sys.argv[6]\nfoundry_models_csv = sys.argv[7]\n\n# Known model specs for auto-configuration\nKNOWN_MODELS = {\n    \"gpt-4.1\": {\"reasoning\": False, \"input\": [\"text\", \"image\"], \"contextWindow\": 1048576, \"maxTokens\": 32768},\n    \"gpt-4.1-mini\": {\"reasoning\": False, \"input\": [\"text\", \"image\"], \"contextWindow\": 1048576, \"maxTokens\": 32768},\n    \"gpt-4.1-nano\": {\"reasoning\": False, \"input\": [\"text\", \"image\"], \"contextWindow\": 1048576, \"maxTokens\": 32768},\n    \"gpt-5.1-chat\": {\"reasoning\": True, \"input\": [\"text\", \"image\"], \"contextWindow\": 1048576, \"maxTokens\": 32768},\n    \"gpt-5.4-mini\": {\"reasoning\": True, \"input\": [\"text\", \"image\"], \"contextWindow\": 1048576, \"maxTokens\": 32768},\n}\n\ndef get_model_spec(model_id):\n    if model_id in KNOWN_MODELS:\n        return KNOWN_MODELS[model_id]\n    import re\n    reasoning = bool(re.search(r\"(?i)(reasoning|think|\\.1-chat|gpt-5|deepseek-r)\", model_id))\n    has_image = bool(re.search(r\"(?i)(gpt-[45]|vision|multimodal)\", model_id))\n    return {\"reasoning\": reasoning, \"input\": [\"text\", \"image\"] if has_image else [\"text\"], \"contextWindow\": 131072, \"maxTokens\": 16384}\n\ndef format_display_name(model_id):\n    parts = model_id.split(\"-\")\n    result = \" \".join(p.capitalize() if p[0:1].islower() else p for p in parts)\n    if result.lower().startswith(\"gpt \"):\n        result = \"GPT \" + result[4:]\n    return result\n\n# Default model: use Foundry if configured, otherwise Anthropic\ndefault_model = \"anthropic/claude-opus-4-6\"\nif foundry_endpoint and foundry_models_csv:\n    first_model = foundry_models_csv.split(\",\")[0].strip()\n    default_model = f\"azure-openai/{first_model}\"\n\nconfig = {\n    \"agents\": {\"defaults\": {\"model\": {\"primary\": default_model}}},\n    \"gateway\": {\"mode\": \"local\"}\n}\n\nif https_enabled == \"true\" and fqdn:\n    config[\"gateway\"][\"trustedProxies\"] = [\"127.0.0.1/32\", \"::1/128\"]\n    config[\"gateway\"][\"controlUi\"] = {\"allowedOrigins\": [f\"https://{fqdn}\"]}\n\nif gw_password:\n    config[\"gateway\"][\"remote\"] = {\"password\": gw_password}\n\n# Configure Foundry models if endpoint is provided\nif foundry_endpoint and foundry_api_key and foundry_models_csv:\n    models_list = [m.strip() for m in foundry_models_csv.split(\",\") if m.strip()]\n    model_entries = []\n    defaults_models = {}\n    for mid in models_list:\n        spec = get_model_spec(mid)\n        model_entries.append({\n            \"id\": mid,\n            \"name\": format_display_name(mid),\n            \"reasoning\": spec[\"reasoning\"],\n            \"input\": spec[\"input\"],\n            \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0},\n            \"contextWindow\": spec[\"contextWindow\"],\n            \"maxTokens\": spec[\"maxTokens\"]\n        })\n        defaults_models[f\"azure-openai/{mid}\"] = {}\n\n    config.setdefault(\"models\", {}).setdefault(\"providers\", {})\n    config[\"models\"][\"providers\"][\"azure-openai\"] = {\n        \"baseUrl\": foundry_endpoint,\n        \"apiKey\": foundry_api_key,\n        \"api\": \"openai-completions\",\n        \"headers\": {\"api-key\": foundry_api_key},\n        \"authHeader\": False,\n        \"models\": model_entries\n    }\n    config[\"agents\"][\"defaults\"][\"models\"] = defaults_models\n\nwith open(config_path, \"w\") as f:\n    json.dump(config, f, indent=2)\nPYEOF\nchown -R \"${ADMIN_USER}:${ADMIN_USER}\" \"${ADMIN_HOME}/.openclaw\"\n\n# 6. Create and enable systemd service\nlog \">>> Configuring systemd service...\"\nOPENCLAW_PATH=$(which openclaw)\n\n# Determine bind mode and auth flags\nif [ \"${ENABLE_PUBLIC_HTTPS}\" = \"true\" ]; then\n  # HTTPS mode: bind loopback, Caddy reverse proxies from 443\n  BIND_MODE=\"loopback\"\nelse\n  # Direct mode: bind all interfaces for remote access\n  BIND_MODE=\"lan\"\nfi\n\n# Build ExecStart command (password is read from OPENCLAW_GATEWAY_PASSWORD env var)\nEXEC_CMD=\"${OPENCLAW_PATH} gateway run --port 18789 --bind ${BIND_MODE} --auth password\"\n\ncat > /etc/systemd/system/openclaw.service <<EOF\n[Unit]\nDescription=OpenClaw Gateway\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nUser=${ADMIN_USER}\nExecStart=${EXEC_CMD}\nRestart=always\nRestartSec=5\nEnvironment=NODE_ENV=production\nEnvironment=OPENCLAW_GATEWAY_PASSWORD=${GATEWAY_PASSWORD}\n\n[Install]\nWantedBy=multi-user.target\nEOF\n\nsystemctl daemon-reload\nsystemctl enable openclaw.service\nsystemctl restart openclaw.service\n\n# 7. Install Caddy reverse proxy (if HTTPS enabled)\nif [ \"${ENABLE_PUBLIC_HTTPS}\" = \"true\" ]; then\n  log \">>> Installing Caddy reverse proxy...\"\n  DEBIAN_FRONTEND=noninteractive apt-get install -y debian-keyring debian-archive-keyring apt-transport-https\n  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --batch --yes --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg\n  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list\n  apt-get update\n  DEBIAN_FRONTEND=noninteractive apt-get install -y caddy\n\n  log \">>> Configuring Caddy...\"\n  cat > /etc/caddy/Caddyfile <<EOF\n${FQDN} {\n    reverse_proxy 127.0.0.1:18789\n}\nEOF\n\n  systemctl restart caddy\n  systemctl enable caddy\n  log \">>> Caddy configured for HTTPS on ${FQDN}\"\nfi\n\n# 8. Configure firewall\nlog \">>> Configuring firewall...\"\nif command -v ufw &> /dev/null; then\n  if [ \"${ENABLE_PUBLIC_HTTPS}\" = \"true\" ]; then\n    ufw allow 443/tcp\n    ufw allow 80/tcp\n  else\n    ufw allow 18789/tcp\n  fi\nfi\n\nlog \"=== OpenClaw installation complete ===\"\n",
-    "windowsScriptContent": "param(\r\n    [switch]$EnablePublicHttps,\r\n    [string]$GatewayPasswordB64 = '',\r\n    [string]$Fqdn = ''\r\n)\r\n\r\n$ErrorActionPreference = 'Stop'\r\n\r\n# Decode base64 gateway password\r\n$GatewayPassword = ''\r\nif ($GatewayPasswordB64) {\r\n    $GatewayPassword = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($GatewayPasswordB64))\r\n}\r\n\r\n# Ensure openclaw directory exists\r\n$openclawDir = \"C:\\openclaw\"\r\nNew-Item -ItemType Directory -Path $openclawDir -Force | Out-Null\r\n\r\n# Phase 1 logging\r\n$logFile = \"$openclawDir\\phase1.log\"\r\nfunction Log { param($msg) $line = \"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $msg\"; Add-Content $logFile $line; Write-Host $line }\r\n\r\n# OpenClaw installer for Windows 11 (via WSL2)\r\n# Phase 1: Enable WSL2, optionally install Caddy, register post-reboot setup task, reboot\r\n# Phase 2: After reboot, the scheduled task installs Node.js + OpenClaw in WSL\r\n\r\nLog \"=== OpenClaw installer for Windows 11 (Phase 1) ===\"\r\nLog \"Public HTTPS: $EnablePublicHttps\"\r\n\r\n# 1. Install WSL2 with Ubuntu (handles feature enablement automatically on Win11)\r\n# Idempotent: wsl --install is safe to re-run; --no-launch prevents interactive prompt\r\nLog \">>> Installing WSL2 with Ubuntu...\"\r\nwsl --install --distribution Ubuntu --no-launch\r\n\r\n# 2. Configure Windows Firewall (idempotent: remove then re-add to avoid duplicate rules)\r\nLog \">>> Configuring Windows Firewall...\"\r\nRemove-NetFirewallRule -DisplayName \"OpenClaw Gateway\" -ErrorAction SilentlyContinue\r\nNew-NetFirewallRule -DisplayName \"OpenClaw Gateway\" `\r\n    -Direction Inbound `\r\n    -Protocol TCP `\r\n    -LocalPort 18789 `\r\n    -Action Allow `\r\n    -Profile Any\r\n\r\nif ($EnablePublicHttps) {\r\n    Remove-NetFirewallRule -DisplayName \"HTTPS (Caddy)\" -ErrorAction SilentlyContinue\r\n    New-NetFirewallRule -DisplayName \"HTTPS (Caddy)\" `\r\n        -Direction Inbound `\r\n        -Protocol TCP `\r\n        -LocalPort 443 `\r\n        -Action Allow `\r\n        -Profile Any\r\n\r\n    # Download Caddy binary\r\n    Log \">>> Downloading Caddy...\"\r\n    $caddyDir = \"C:\\caddy\"\r\n    New-Item -ItemType Directory -Path $caddyDir -Force | Out-Null\r\n    Invoke-WebRequest -Uri \"https://caddyserver.com/api/download?os=windows&arch=amd64\" -OutFile \"$caddyDir\\caddy.exe\" -UseBasicParsing\r\n\r\n    # Write Caddyfile\r\n    Log \">>> Writing Caddyfile...\"\r\n    Set-Content -Path \"$caddyDir\\Caddyfile\" -Value @\"\r\n$Fqdn {\r\n    reverse_proxy 127.0.0.1:18789\r\n}\r\n\"@ -Encoding UTF8\r\n}\r\n\r\n# 3. Write config for Phase 2 to read\r\nLog \">>> Writing Phase 2 config...\"\r\n$configContent = @\"\r\nEnablePublicHttps=$($EnablePublicHttps.ToString())\r\nGatewayPassword=$GatewayPassword\r\nFqdn=$Fqdn\r\nFoundryEndpoint=$FoundryEndpoint\r\nFoundryApiKey=$FoundryApiKey\r\nFoundryModels=$FoundryModels\r\n\"@\r\nSet-Content -Path \"$openclawDir\\config.txt\" -Value $configContent -Encoding UTF8\r\n\r\n# 4. Create post-reboot setup script (Phase 2)\r\nLog \">>> Creating post-reboot setup script...\"\r\n\r\n$phase2Script = @'\r\n$ErrorActionPreference = 'Stop'\r\n$logFile = \"C:\\openclaw\\phase2.log\"\r\n\r\nfunction Log { param($msg) Add-Content $logFile \"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $msg\" }\r\n\r\n# Idempotency: skip if Phase 2 already completed successfully\r\nif (Test-Path \"C:\\openclaw\\phase2.done\") {\r\n    Add-Content $logFile \"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') Phase 2 already completed. Skipping.\"\r\n    Unregister-ScheduledTask -TaskName \"OpenClawSetup\" -Confirm:$false -ErrorAction SilentlyContinue\r\n    exit 0\r\n}\r\n\r\nLog \"=== OpenClaw post-reboot setup (Phase 2) started ===\"\r\n\r\n# Read config from Phase 1\r\n$config = @{}\r\nGet-Content \"C:\\openclaw\\config.txt\" | ForEach-Object {\r\n    $parts = $_ -split '=', 2\r\n    if ($parts.Count -eq 2) { $config[$parts[0]] = $parts[1] }\r\n}\r\n$enableHttps = $config['EnablePublicHttps'] -eq 'True'\r\n$gwPassword = $config['GatewayPassword']\r\n$fqdn = $config['Fqdn']\r\n$foundryEndpoint = $config['FoundryEndpoint']\r\n$foundryApiKey = $config['FoundryApiKey']\r\n$foundryModels = $config['FoundryModels']\r\nLog \"Config: EnablePublicHttps=$enableHttps, Fqdn=$fqdn, Foundry=$([bool]$foundryEndpoint)\"\r\n\r\n# Wait for WSL to be ready\r\n$maxRetries = 30\r\nfor ($i = 0; $i -lt $maxRetries; $i++) {\r\n    $status = wsl --status 2>&1\r\n    if ($LASTEXITCODE -eq 0) { break }\r\n    Log \"Waiting for WSL... attempt $($i + 1)/$maxRetries\"\r\n    Start-Sleep -Seconds 10\r\n}\r\n\r\n# Initialize Ubuntu distro with a default user (avoids root-only default)\r\nLog \"Initializing Ubuntu distro...\"\r\n$wslUser = \"openclaw\"\r\nwsl -d Ubuntu -- bash -c \"id -u $wslUser 2>/dev/null || (useradd -m -s /bin/bash $wslUser && echo '${wslUser} ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/$wslUser)\"\r\n# Set as default user for this distro\r\n$regPath = \"HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Lxss\"\r\nGet-ChildItem $regPath -ErrorAction SilentlyContinue | ForEach-Object {\r\n    $distroName = (Get-ItemProperty $_.PSPath).DistributionName\r\n    if ($distroName -eq \"Ubuntu\") {\r\n        $uid = wsl -d Ubuntu -- bash -c \"id -u $wslUser\"\r\n        Set-ItemProperty -Path $_.PSPath -Name DefaultUid -Value ([int]$uid)\r\n    }\r\n}\r\nwsl -d Ubuntu -u $wslUser -- bash -c \"echo 'Ubuntu ready as $wslUser'\"\r\nLog \"Ubuntu distro initialized with user: $wslUser\"\r\n\r\n# Install Node.js 24 (idempotent: NodeSource setup + apt install is safe to re-run)\r\nLog \"Installing Node.js 24...\"\r\nwsl -d Ubuntu -u $wslUser -- bash -c \"curl -fsSL https://deb.nodesource.com/setup_24.x | sudo bash - && sudo apt-get install -y nodejs\"\r\nLog \"Node.js installed: $(wsl -d Ubuntu -u $wslUser -- node --version)\"\r\n\r\n# Install OpenClaw (idempotent: npm install -g overwrites existing)\r\nLog \"Installing OpenClaw...\"\r\nwsl -d Ubuntu -u $wslUser -- bash -c \"sudo npm install -g openclaw@latest\"\r\nLog \"OpenClaw installed\"\r\n\r\n# Create config (idempotent: always overwrite with correct config)\r\n# Use PowerShell hashtable → JSON for safe handling of special characters in password\r\nLog \"Creating OpenClaw configuration...\"\r\n$defaultModel = \"anthropic/claude-opus-4-6\"\r\nif ($foundryEndpoint -and $foundryModels) {\r\n    $firstModel = ($foundryModels -split ',')[0].Trim()\r\n    $defaultModel = \"azure-openai/$firstModel\"\r\n}\r\n$configObj = @{\r\n    agents = @{ defaults = @{ model = @{ primary = $defaultModel } } }\r\n    gateway = @{ mode = \"local\" }\r\n}\r\nif ($enableHttps -and $fqdn) {\r\n    $configObj.gateway.trustedProxies = @(\"127.0.0.1/32\", \"::1/128\")\r\n    $configObj.gateway.controlUi = @{ allowedOrigins = @(\"https://$fqdn\") }\r\n}\r\nif ($gwPassword) {\r\n    $configObj.gateway.remote = @{ password = $gwPassword }\r\n}\r\nif ($foundryEndpoint -and $foundryApiKey -and $foundryModels) {\r\n    $modelList = $foundryModels -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }\r\n    $modelEntries = @()\r\n    $defaultsModels = @{}\r\n    foreach ($mid in $modelList) {\r\n        $modelEntries += @{\r\n            id = $mid; name = $mid; reasoning = $false\r\n            input = @(\"text\"); cost = @{ input = 0; output = 0; cacheRead = 0; cacheWrite = 0 }\r\n            contextWindow = 131072; maxTokens = 16384\r\n        }\r\n        $defaultsModels[\"azure-openai/$mid\"] = @{}\r\n    }\r\n    $configObj.models = @{\r\n        providers = @{\r\n            \"azure-openai\" = @{\r\n                baseUrl = $foundryEndpoint; apiKey = $foundryApiKey\r\n                api = \"openai-completions\"; headers = @{ \"api-key\" = $foundryApiKey }\r\n                authHeader = $false; models = $modelEntries\r\n            }\r\n        }\r\n    }\r\n    $configObj.agents.defaults.models = $defaultsModels\r\n}\r\n$configJson = $configObj | ConvertTo-Json -Depth 5\r\nwsl -d Ubuntu -u $wslUser -- bash -c \"mkdir -p ~/.openclaw && cat > ~/.openclaw/openclaw.json << 'HEREDOC'\r\n$configJson\r\nHEREDOC\"\r\n\r\n# Create systemd service in WSL\r\nLog \"Configuring systemd service...\"\r\n$bindMode = if ($enableHttps) { \"loopback\" } else { \"lan\" }\r\n$execCmd = \"/usr/local/bin/openclaw gateway run --port 18789 --bind $bindMode --auth password\"\r\n$envLine = if ($gwPassword) { \"Environment=OPENCLAW_GATEWAY_PASSWORD=$gwPassword\" } else { \"\" }\r\n$unit = @\"\r\n[Unit]\r\nDescription=OpenClaw Gateway\r\nAfter=network-online.target\r\nWants=network-online.target\r\n\r\n[Service]\r\nType=simple\r\nUser=$wslUser\r\nExecStart=$execCmd\r\nRestart=always\r\nRestartSec=5\r\nEnvironment=NODE_ENV=production\r\n$envLine\r\n\r\n[Install]\r\nWantedBy=multi-user.target\r\n\"@\r\n$unit | wsl -d Ubuntu -u root -- bash -c \"tee /etc/systemd/system/openclaw.service > /dev/null\"\r\nwsl -d Ubuntu -u root -- bash -c \"systemctl daemon-reload && systemctl enable openclaw.service && systemctl start openclaw.service\"\r\nLog \"OpenClaw service started\"\r\n\r\n# Create a port-proxy refresh script (handles WSL IP changes across reboots)\r\nLog \"Creating port proxy refresh script...\"\r\n$listenAddr = if ($enableHttps) { \"127.0.0.1\" } else { \"0.0.0.0\" }\r\n$portProxyScript = @\"\r\n`$ErrorActionPreference = 'SilentlyContinue'\r\n# Wait for WSL to be ready\r\nfor (`$i = 0; `$i -lt 20; `$i++) {\r\n    `$status = wsl --status 2>&1\r\n    if (`$LASTEXITCODE -eq 0) { break }\r\n    Start-Sleep -Seconds 5\r\n}\r\n# Ensure Ubuntu distro is running\r\nwsl -d Ubuntu -u $wslUser -- bash -c \"echo ready\" 2>&1 | Out-Null\r\n# Get current WSL IP and refresh port proxy\r\n`$wslIp = wsl -d Ubuntu -u $wslUser -- bash -c \"hostname -I\" | ForEach-Object { `$_.Trim().Split(' ')[0] }\r\nif (`$wslIp) {\r\n    netsh interface portproxy delete v4tov4 listenport=18789 listenaddress=$listenAddr 2>&1 | Out-Null\r\n    netsh interface portproxy add v4tov4 listenport=18789 listenaddress=$listenAddr connectport=18789 connectaddress=`$wslIp\r\n}\r\n\"@\r\nSet-Content -Path \"C:\\openclaw\\refresh-portproxy.ps1\" -Value $portProxyScript -Encoding UTF8\r\n\r\n# Run port proxy now\r\n$wslIp = wsl -d Ubuntu -u $wslUser -- bash -c \"hostname -I\" | ForEach-Object { $_.Trim().Split(' ')[0] }\r\nif ($wslIp) {\r\n    netsh interface portproxy delete v4tov4 listenport=18789 listenaddress=$listenAddr 2>&1 | Out-Null\r\n    netsh interface portproxy add v4tov4 listenport=18789 listenaddress=$listenAddr connectport=18789 connectaddress=$wslIp\r\n    Log \"Port proxy: ${listenAddr}:18789 -> WSL(${wslIp}):18789\"\r\n}\r\n\r\n# Register scheduled task to refresh port proxy on every startup (WSL IP may change)\r\n$ppAction = New-ScheduledTaskAction -Execute \"powershell.exe\" -Argument \"-ExecutionPolicy Bypass -File C:\\openclaw\\refresh-portproxy.ps1\"\r\n$ppTrigger = New-ScheduledTaskTrigger -AtStartup\r\n$ppPrincipal = New-ScheduledTaskPrincipal -UserId \"SYSTEM\" -LogonType ServiceAccount -RunLevel Highest\r\nRegister-ScheduledTask -TaskName \"OpenClawPortProxy\" -Action $ppAction -Trigger $ppTrigger -Principal $ppPrincipal -Force\r\nLog \"Port proxy refresh task registered for startup\"\r\n\r\n# Start Caddy if HTTPS is enabled\r\nif ($enableHttps -and (Test-Path \"C:\\caddy\\caddy.exe\")) {\r\n    Log \"Starting Caddy reverse proxy...\"\r\n    $caddyAction = New-ScheduledTaskAction -Execute \"C:\\caddy\\caddy.exe\" -Argument \"run --config C:\\caddy\\Caddyfile\"\r\n    $caddyTrigger = New-ScheduledTaskTrigger -AtStartup\r\n    $caddyPrincipal = New-ScheduledTaskPrincipal -UserId \"SYSTEM\" -LogonType ServiceAccount -RunLevel Highest\r\n    Register-ScheduledTask -TaskName \"CaddyServer\" -Action $caddyAction -Trigger $caddyTrigger -Principal $caddyPrincipal -Force\r\n    Start-ScheduledTask -TaskName \"CaddyServer\"\r\n    Log \"Caddy started for HTTPS on $fqdn\"\r\n}\r\n\r\n# Mark Phase 2 as complete (idempotency sentinel)\r\nSet-Content -Path \"C:\\openclaw\\phase2.done\" -Value \"$(Get-Date -Format 'yyyy-MM-ddTHH:mm:ss')\" -Encoding UTF8\r\n\r\n# Clean up\r\nRemove-Item \"C:\\openclaw\\config.txt\" -ErrorAction SilentlyContinue\r\nUnregister-ScheduledTask -TaskName \"OpenClawSetup\" -Confirm:$false -ErrorAction SilentlyContinue\r\nLog \"=== OpenClaw setup complete ===\"\r\n'@\r\n\r\n$phase2Path = \"$openclawDir\\post-reboot.ps1\"\r\nSet-Content -Path $phase2Path -Value $phase2Script -Encoding UTF8\r\n\r\n# 5. Register scheduled task to run Phase 2 after reboot\r\nLog \">>> Registering post-reboot setup task...\"\r\n$action = New-ScheduledTaskAction -Execute \"powershell.exe\" `\r\n    -Argument \"-ExecutionPolicy Bypass -File $phase2Path\"\r\n$trigger = New-ScheduledTaskTrigger -AtStartup\r\n$principal = New-ScheduledTaskPrincipal -UserId \"SYSTEM\" -LogonType ServiceAccount -RunLevel Highest\r\nRegister-ScheduledTask -TaskName \"OpenClawSetup\" `\r\n    -Action $action -Trigger $trigger -Principal $principal -Force\r\n\r\n# 6. Schedule reboot to complete WSL2 installation\r\nLog \">>> Phase 1 complete. The VM will reboot in 30 seconds to finalize WSL2.\"\r\nLog \">>> After reboot, Node.js and OpenClaw will be installed automatically.\"\r\nLog \">>> Check C:\\openclaw\\phase2.log for Phase 2 progress.\"\r\nshutdown /r /t 30 /c \"Rebooting to complete WSL2 and OpenClaw installation...\"\r\n"
+    "ubuntuScriptContent": "#!/bin/bash\nset -euo pipefail\n\n# Ensure log directory exists\nmkdir -p /var/log/openclaw\n\n# Log all output to file and console\nexec > >(tee /var/log/openclaw/install.log) 2>&1\n\nlog() {\n  echo \"[$(date '+%Y-%m-%d %H:%M:%S')] $*\"\n}\n\n# Usage: install-openclaw-ubuntu.sh <admin_username> [enable_public_https] [gateway_password_b64] [fqdn]\nADMIN_USER=\"${1:-azureclaw}\"\nENABLE_PUBLIC_HTTPS=\"${2:-false}\"\nGATEWAY_PASSWORD_B64=\"${3:-}\"\nFQDN=\"${4:-}\"\nADMIN_HOME=\"/home/${ADMIN_USER}\"\n\n# Decode base64 gateway password\nGATEWAY_PASSWORD=\"\"\nif [ -n \"${GATEWAY_PASSWORD_B64}\" ]; then\n  GATEWAY_PASSWORD=$(echo \"${GATEWAY_PASSWORD_B64}\" | base64 -d)\nfi\n\nlog \"=== OpenClaw installer for Ubuntu ===\"\nlog \"Admin user: ${ADMIN_USER}\"\nlog \"Public HTTPS: ${ENABLE_PUBLIC_HTTPS}\"\n\n# 1. Update system packages\nlog \">>> Updating system packages...\"\napt-get update\nDEBIAN_FRONTEND=noninteractive apt-get upgrade -y\n\n# 2. Install dependencies\nlog \">>> Installing dependencies...\"\nDEBIAN_FRONTEND=noninteractive apt-get install -y curl git build-essential\n\n# 3. Install Node.js 24 via NodeSource\nlog \">>> Installing Node.js 24...\"\ncurl -fsSL https://deb.nodesource.com/setup_24.x | bash -\nDEBIAN_FRONTEND=noninteractive apt-get install -y nodejs\n\nlog \"Node.js version: $(node --version)\"\nlog \"npm version: $(npm --version)\"\n\n# 4. Install OpenClaw globally\nlog \">>> Installing OpenClaw...\"\nnpm install -g openclaw@latest\n\n# 5. Create OpenClaw config directory and default config\nlog \">>> Creating OpenClaw configuration...\"\nmkdir -p \"${ADMIN_HOME}/.openclaw\"\n\npython3 - \"${ADMIN_HOME}/.openclaw/openclaw.json\" \"${ENABLE_PUBLIC_HTTPS}\" \"${FQDN}\" \"${GATEWAY_PASSWORD}\" <<'PYEOF'\nimport json, sys\nconfig_path = sys.argv[1]\nhttps_enabled = sys.argv[2]\nfqdn = sys.argv[3]\ngw_password = sys.argv[4]\n\nconfig = {\n    \"agents\": {\"defaults\": {\"model\": {\"primary\": \"anthropic/claude-opus-4-6\"}}},\n    \"gateway\": {\"mode\": \"local\"}\n}\n\nif https_enabled == \"true\" and fqdn:\n    config[\"gateway\"][\"trustedProxies\"] = [\"127.0.0.1/32\", \"::1/128\"]\n    config[\"gateway\"][\"controlUi\"] = {\"allowedOrigins\": [f\"https://{fqdn}\"]}\n\nif gw_password:\n    config[\"gateway\"][\"remote\"] = {\"password\": gw_password}\n\nwith open(config_path, \"w\") as f:\n    json.dump(config, f, indent=2)\nPYEOF\nchown -R \"${ADMIN_USER}:${ADMIN_USER}\" \"${ADMIN_HOME}/.openclaw\"\n\n# 6. Create and enable systemd service\nlog \">>> Configuring systemd service...\"\nOPENCLAW_PATH=$(which openclaw)\n\n# Determine bind mode and auth flags\nif [ \"${ENABLE_PUBLIC_HTTPS}\" = \"true\" ]; then\n  BIND_MODE=\"loopback\"\nelse\n  BIND_MODE=\"lan\"\nfi\n\nEXEC_CMD=\"${OPENCLAW_PATH} gateway run --port 18789 --bind ${BIND_MODE} --auth password\"\n\ncat > /etc/systemd/system/openclaw.service <<EOF\n[Unit]\nDescription=OpenClaw Gateway\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nUser=${ADMIN_USER}\nExecStart=${EXEC_CMD}\nRestart=always\nRestartSec=5\nEnvironment=NODE_ENV=production\nEnvironment=OPENCLAW_GATEWAY_PASSWORD=${GATEWAY_PASSWORD}\n\n[Install]\nWantedBy=multi-user.target\nEOF\n\nsystemctl daemon-reload\nsystemctl enable openclaw.service\nsystemctl restart openclaw.service\n\n# 7. Install Caddy reverse proxy (if HTTPS enabled)\nif [ \"${ENABLE_PUBLIC_HTTPS}\" = \"true\" ]; then\n  log \">>> Installing Caddy reverse proxy...\"\n  DEBIAN_FRONTEND=noninteractive apt-get install -y debian-keyring debian-archive-keyring apt-transport-https\n  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --batch --yes --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg\n  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list\n  apt-get update\n  DEBIAN_FRONTEND=noninteractive apt-get install -y caddy\n\n  log \">>> Configuring Caddy...\"\n  cat > /etc/caddy/Caddyfile <<EOF\n${FQDN} {\n    reverse_proxy 127.0.0.1:18789\n}\nEOF\n\n  systemctl restart caddy\n  systemctl enable caddy\n  log \">>> Caddy configured for HTTPS on ${FQDN}\"\nfi\n\n# 8. Configure firewall\nlog \">>> Configuring firewall...\"\nif command -v ufw &> /dev/null; then\n  if [ \"${ENABLE_PUBLIC_HTTPS}\" = \"true\" ]; then\n    ufw allow 443/tcp\n    ufw allow 80/tcp\n  else\n    ufw allow 18789/tcp\n  fi\nfi\n\nlog \"=== OpenClaw installation complete ===\"\n",
+    "windowsScriptContent": "param(\n    [switch]$EnablePublicHttps,\n    [string]$GatewayPasswordB64 = '',\n    [string]$Fqdn = ''\n)\n\n$ErrorActionPreference = 'Stop'\n\n# Decode base64 gateway password\n$GatewayPassword = ''\nif ($GatewayPasswordB64) {\n    $GatewayPassword = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($GatewayPasswordB64))\n}\n\n# Ensure openclaw directory exists\n$openclawDir = \"C:\\openclaw\"\nNew-Item -ItemType Directory -Path $openclawDir -Force | Out-Null\n\n# Phase 1 logging\n$logFile = \"$openclawDir\\phase1.log\"\nfunction Log { param($msg) $line = \"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $msg\"; Add-Content $logFile $line; Write-Host $line }\n\nLog \"=== OpenClaw installer for Windows 11 (Phase 1) ===\"\nLog \"Public HTTPS: $EnablePublicHttps\"\n\n# 1. Install WSL2 with Ubuntu\nLog \">>> Installing WSL2 with Ubuntu...\"\nwsl --install --distribution Ubuntu --no-launch\n\n# 2. Configure Windows Firewall\nLog \">>> Configuring Windows Firewall...\"\nRemove-NetFirewallRule -DisplayName \"OpenClaw Gateway\" -ErrorAction SilentlyContinue\nNew-NetFirewallRule -DisplayName \"OpenClaw Gateway\" `\n    -Direction Inbound `\n    -Protocol TCP `\n    -LocalPort 18789 `\n    -Action Allow `\n    -Profile Any\n\nif ($EnablePublicHttps) {\n    Remove-NetFirewallRule -DisplayName \"HTTPS (Caddy)\" -ErrorAction SilentlyContinue\n    New-NetFirewallRule -DisplayName \"HTTPS (Caddy)\" `\n        -Direction Inbound `\n        -Protocol TCP `\n        -LocalPort 443 `\n        -Action Allow `\n        -Profile Any\n\n    Log \">>> Downloading Caddy...\"\n    $caddyDir = \"C:\\caddy\"\n    New-Item -ItemType Directory -Path $caddyDir -Force | Out-Null\n    Invoke-WebRequest -Uri \"https://caddyserver.com/api/download?os=windows&arch=amd64\" -OutFile \"$caddyDir\\caddy.exe\" -UseBasicParsing\n\n    Log \">>> Writing Caddyfile...\"\n    Set-Content -Path \"$caddyDir\\Caddyfile\" -Value @\"\n$Fqdn {\n    reverse_proxy 127.0.0.1:18789\n}\n\"@ -Encoding UTF8\n}\n\n# 3. Write config for Phase 2 to read\nLog \">>> Writing Phase 2 config...\"\n$configContent = @\"\nEnablePublicHttps=$($EnablePublicHttps.ToString())\nGatewayPassword=$GatewayPassword\nFqdn=$Fqdn\n\"@\nSet-Content -Path \"$openclawDir\\config.txt\" -Value $configContent -Encoding UTF8\n\n# 4. Create post-reboot setup script (Phase 2)\nLog \">>> Creating post-reboot setup script...\"\n\n$phase2Script = @'\n$ErrorActionPreference = 'Stop'\n$logFile = \"C:\\openclaw\\phase2.log\"\n\nfunction Log { param($msg) Add-Content $logFile \"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $msg\" }\n\nif (Test-Path \"C:\\openclaw\\phase2.done\") {\n    Add-Content $logFile \"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') Phase 2 already completed. Skipping.\"\n    Unregister-ScheduledTask -TaskName \"OpenClawSetup\" -Confirm:$false -ErrorAction SilentlyContinue\n    exit 0\n}\n\nLog \"=== OpenClaw post-reboot setup (Phase 2) started ===\"\n\n$config = @{}\nGet-Content \"C:\\openclaw\\config.txt\" | ForEach-Object {\n    $parts = $_ -split '=', 2\n    if ($parts.Count -eq 2) { $config[$parts[0]] = $parts[1] }\n}\n$enableHttps = $config['EnablePublicHttps'] -eq 'True'\n$gwPassword = $config['GatewayPassword']\n$fqdn = $config['Fqdn']\nLog \"Config: EnablePublicHttps=$enableHttps, Fqdn=$fqdn\"\n\n$maxRetries = 30\nfor ($i = 0; $i -lt $maxRetries; $i++) {\n    $status = wsl --status 2>&1\n    if ($LASTEXITCODE -eq 0) { break }\n    Log \"Waiting for WSL... attempt $($i + 1)/$maxRetries\"\n    Start-Sleep -Seconds 10\n}\n\nLog \"Initializing Ubuntu distro...\"\n$wslUser = \"openclaw\"\nwsl -d Ubuntu -- bash -c \"id -u $wslUser 2>/dev/null || (useradd -m -s /bin/bash $wslUser && echo '${wslUser} ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/$wslUser)\"\n$regPath = \"HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Lxss\"\nGet-ChildItem $regPath -ErrorAction SilentlyContinue | ForEach-Object {\n    $distroName = (Get-ItemProperty $_.PSPath).DistributionName\n    if ($distroName -eq \"Ubuntu\") {\n        $uid = wsl -d Ubuntu -- bash -c \"id -u $wslUser\"\n        Set-ItemProperty -Path $_.PSPath -Name DefaultUid -Value ([int]$uid)\n    }\n}\nwsl -d Ubuntu -u $wslUser -- bash -c \"echo 'Ubuntu ready as $wslUser'\"\nLog \"Ubuntu distro initialized with user: $wslUser\"\n\nLog \"Installing Node.js 24...\"\nwsl -d Ubuntu -u $wslUser -- bash -c \"curl -fsSL https://deb.nodesource.com/setup_24.x | sudo bash - && sudo apt-get install -y nodejs\"\nLog \"Node.js installed: $(wsl -d Ubuntu -u $wslUser -- node --version)\"\n\nLog \"Installing OpenClaw...\"\nwsl -d Ubuntu -u $wslUser -- bash -c \"sudo npm install -g openclaw@latest\"\nLog \"OpenClaw installed\"\n\nLog \"Creating OpenClaw configuration...\"\n$configObj = @{\n    agents = @{ defaults = @{ model = @{ primary = \"anthropic/claude-opus-4-6\" } } }\n    gateway = @{ mode = \"local\" }\n}\nif ($enableHttps -and $fqdn) {\n    $configObj.gateway.trustedProxies = @(\"127.0.0.1/32\", \"::1/128\")\n    $configObj.gateway.controlUi = @{ allowedOrigins = @(\"https://$fqdn\") }\n}\nif ($gwPassword) {\n    $configObj.gateway.remote = @{ password = $gwPassword }\n}\n$configJson = $configObj | ConvertTo-Json -Depth 5\nwsl -d Ubuntu -u $wslUser -- bash -c \"mkdir -p ~/.openclaw && cat > ~/.openclaw/openclaw.json << 'HEREDOC'\n$configJson\nHEREDOC\"\n\nLog \"Configuring systemd service...\"\n$bindMode = if ($enableHttps) { \"loopback\" } else { \"lan\" }\n$execCmd = \"/usr/local/bin/openclaw gateway run --port 18789 --bind $bindMode --auth password\"\n$envLine = if ($gwPassword) { \"Environment=OPENCLAW_GATEWAY_PASSWORD=$gwPassword\" } else { \"\" }\n$unit = @\"\n[Unit]\nDescription=OpenClaw Gateway\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nUser=$wslUser\nExecStart=$execCmd\nRestart=always\nRestartSec=5\nEnvironment=NODE_ENV=production\n$envLine\n\n[Install]\nWantedBy=multi-user.target\n\"@\n$unit | wsl -d Ubuntu -u root -- bash -c \"tee /etc/systemd/system/openclaw.service > /dev/null\"\nwsl -d Ubuntu -u root -- bash -c \"systemctl daemon-reload && systemctl enable openclaw.service && systemctl start openclaw.service\"\nLog \"OpenClaw service started\"\n\nLog \"Creating port proxy refresh script...\"\n$listenAddr = if ($enableHttps) { \"127.0.0.1\" } else { \"0.0.0.0\" }\n$portProxyScript = @\"\n`$ErrorActionPreference = 'SilentlyContinue'\nfor (`$i = 0; `$i -lt 20; `$i++) {\n    `$status = wsl --status 2>&1\n    if (`$LASTEXITCODE -eq 0) { break }\n    Start-Sleep -Seconds 5\n}\nwsl -d Ubuntu -u $wslUser -- bash -c \"echo ready\" 2>&1 | Out-Null\n`$wslIp = wsl -d Ubuntu -u $wslUser -- bash -c \"hostname -I\" | ForEach-Object { `$_.Trim().Split(' ')[0] }\nif (`$wslIp) {\n    netsh interface portproxy delete v4tov4 listenport=18789 listenaddress=$listenAddr 2>&1 | Out-Null\n    netsh interface portproxy add v4tov4 listenport=18789 listenaddress=$listenAddr connectport=18789 connectaddress=`$wslIp\n}\n\"@\nSet-Content -Path \"C:\\openclaw\\refresh-portproxy.ps1\" -Value $portProxyScript -Encoding UTF8\n\n$wslIp = wsl -d Ubuntu -u $wslUser -- bash -c \"hostname -I\" | ForEach-Object { $_.Trim().Split(' ')[0] }\nif ($wslIp) {\n    netsh interface portproxy delete v4tov4 listenport=18789 listenaddress=$listenAddr 2>&1 | Out-Null\n    netsh interface portproxy add v4tov4 listenport=18789 listenaddress=$listenAddr connectport=18789 connectaddress=$wslIp\n    Log \"Port proxy: ${listenAddr}:18789 -> WSL(${wslIp}):18789\"\n}\n\n$ppAction = New-ScheduledTaskAction -Execute \"powershell.exe\" -Argument \"-ExecutionPolicy Bypass -File C:\\openclaw\\refresh-portproxy.ps1\"\n$ppTrigger = New-ScheduledTaskTrigger -AtStartup\n$ppPrincipal = New-ScheduledTaskPrincipal -UserId \"SYSTEM\" -LogonType ServiceAccount -RunLevel Highest\nRegister-ScheduledTask -TaskName \"OpenClawPortProxy\" -Action $ppAction -Trigger $ppTrigger -Principal $ppPrincipal -Force\nLog \"Port proxy refresh task registered for startup\"\n\nif ($enableHttps -and (Test-Path \"C:\\caddy\\caddy.exe\")) {\n    Log \"Starting Caddy reverse proxy...\"\n    $caddyAction = New-ScheduledTaskAction -Execute \"C:\\caddy\\caddy.exe\" -Argument \"run --config C:\\caddy\\Caddyfile\"\n    $caddyTrigger = New-ScheduledTaskTrigger -AtStartup\n    $caddyPrincipal = New-ScheduledTaskPrincipal -UserId \"SYSTEM\" -LogonType ServiceAccount -RunLevel Highest\n    Register-ScheduledTask -TaskName \"CaddyServer\" -Action $caddyAction -Trigger $caddyTrigger -Principal $caddyPrincipal -Force\n    Start-ScheduledTask -TaskName \"CaddyServer\"\n    Log \"Caddy started for HTTPS on $fqdn\"\n}\n\nSet-Content -Path \"C:\\openclaw\\phase2.done\" -Value \"$(Get-Date -Format 'yyyy-MM-ddTHH:mm:ss')\" -Encoding UTF8\n\nRemove-Item \"C:\\openclaw\\config.txt\" -ErrorAction SilentlyContinue\nUnregister-ScheduledTask -TaskName \"OpenClawSetup\" -Confirm:$false -ErrorAction SilentlyContinue\nLog \"=== OpenClaw setup complete ===\"\n'@\n\n$phase2Path = \"$openclawDir\\post-reboot.ps1\"\nSet-Content -Path $phase2Path -Value $phase2Script -Encoding UTF8\n\n# 5. Register scheduled task to run Phase 2 after reboot\nLog \">>> Registering post-reboot setup task...\"\n$action = New-ScheduledTaskAction -Execute \"powershell.exe\" `\n    -Argument \"-ExecutionPolicy Bypass -File $phase2Path\"\n$trigger = New-ScheduledTaskTrigger -AtStartup\n$principal = New-ScheduledTaskPrincipal -UserId \"SYSTEM\" -LogonType ServiceAccount -RunLevel Highest\nRegister-ScheduledTask -TaskName \"OpenClawSetup\" `\n    -Action $action -Trigger $trigger -Principal $principal -Force\n\n# 6. Schedule reboot to complete WSL2 installation\nLog \">>> Phase 1 complete. The VM will reboot in 30 seconds to finalize WSL2.\"\nLog \">>> After reboot, Node.js and OpenClaw will be installed automatically.\"\nLog \">>> Check C:\\openclaw\\phase2.log for Phase 2 progress.\"\nshutdown /r /t 30 /c \"Rebooting to complete WSL2 and OpenClaw installation...\"\n"
   },
   "resources": [
     {
@@ -287,104 +266,6 @@
       }
     },
     {
-      "condition": "[parameters('enableFoundry')]",
-      "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2025-04-01",
-      "name": "foundry",
-      "properties": {
-        "expressionEvaluationOptions": {
-          "scope": "inner"
-        },
-        "mode": "Incremental",
-        "parameters": {
-          "location": {
-            "value": "[parameters('foundryLocation')]"
-          },
-          "modelName": {
-            "value": "[parameters('foundryModelName')]"
-          }
-        },
-        "template": {
-          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-          "contentVersion": "1.0.0.0",
-          "metadata": {
-            "_generator": {
-              "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "3184973913499514141"
-            }
-          },
-          "parameters": {
-            "location": {
-              "type": "string",
-              "metadata": {
-                "description": "Azure region"
-              }
-            },
-            "modelName": {
-              "type": "string",
-              "defaultValue": "gpt-4.1",
-              "metadata": {
-                "description": "Model deployment name"
-              }
-            }
-          },
-          "variables": {
-            "uniqueSuffix": "[uniqueString(resourceGroup().id, 'openclaw-ai')]",
-            "accountName": "[format('openclaw-ai-{0}', variables('uniqueSuffix'))]"
-          },
-          "resources": [
-            {
-              "type": "Microsoft.CognitiveServices/accounts",
-              "apiVersion": "2024-10-01",
-              "name": "[variables('accountName')]",
-              "location": "[parameters('location')]",
-              "kind": "AIServices",
-              "sku": {
-                "name": "S0"
-              },
-              "properties": {
-                "customSubDomainName": "[variables('accountName')]",
-                "publicNetworkAccess": "Enabled"
-              }
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', variables('accountName'), parameters('modelName'))]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 10
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "[parameters('modelName')]"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', variables('accountName'))]"
-              ]
-            }
-          ],
-          "outputs": {
-            "endpoint": {
-              "type": "string",
-              "value": "[format('{0}openai/v1', reference(resourceId('Microsoft.CognitiveServices/accounts', variables('accountName')), '2024-10-01').endpoint)]"
-            },
-            "accountName": {
-              "type": "string",
-              "value": "[variables('accountName')]"
-            },
-            "apiKey": {
-              "type": "string",
-              "value": "[listKeys(resourceId('Microsoft.CognitiveServices/accounts', variables('accountName')), '2024-10-01').key1]"
-            }
-          }
-        }
-      }
-    },
-    {
       "condition": "[equals(parameters('osType'), 'Ubuntu')]",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
@@ -424,10 +305,7 @@
           },
           "fqdn": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network'), '2025-04-01').outputs.fqdn.value]"
-          },
-          "foundryEndpoint": "[if(parameters('enableFoundry'), createObject('value', reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.endpoint.value), createObject('value', ''))]",
-          "foundryApiKey": "[if(parameters('enableFoundry'), createObject('value', reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.apiKey.value), createObject('value', ''))]",
-          "foundryModels": "[if(parameters('enableFoundry'), createObject('value', parameters('foundryModelName')), createObject('value', ''))]"
+          }
         },
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -436,7 +314,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "88636411531042622"
+              "templateHash": "17593037786429390343"
             }
           },
           "parameters": {
@@ -502,40 +380,16 @@
               "metadata": {
                 "description": "Fully qualified domain name for HTTPS certificate"
               }
-            },
-            "foundryEndpoint": {
-              "type": "string",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Microsoft Foundry endpoint URL (empty = skip Foundry config)"
-              }
-            },
-            "foundryApiKey": {
-              "type": "securestring",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Microsoft Foundry API key"
-              }
-            },
-            "foundryModels": {
-              "type": "string",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Comma-separated model deployment names"
-              }
             }
           },
           "variables": {
             "encodedGatewayPassword": "[base64(parameters('gatewayPassword'))]",
-            "wrapperTemplate": "#!/bin/bash\r\nset -- \"__PH_ADMIN__\" \"__PH_HTTPS__\" \"__PH_GWPWD__\" \"__PH_FQDN__\" \"__PH_FOUNDRY_EP__\" \"__PH_FOUNDRY_KEY__\" \"__PH_FOUNDRY_MODELS__\"\r\n__PH_SCRIPT__",
+            "wrapperTemplate": "#!/bin/bash\nset -- \"__PH_ADMIN__\" \"__PH_HTTPS__\" \"__PH_GWPWD__\" \"__PH_FQDN__\"\n__PH_SCRIPT__",
             "w1": "[replace(variables('wrapperTemplate'), '__PH_ADMIN__', parameters('adminUsername'))]",
             "w2": "[replace(variables('w1'), '__PH_HTTPS__', if(parameters('enablePublicHttps'), 'true', 'false'))]",
             "w3": "[replace(variables('w2'), '__PH_GWPWD__', variables('encodedGatewayPassword'))]",
             "w4": "[replace(variables('w3'), '__PH_FQDN__', parameters('fqdn'))]",
-            "w5": "[replace(variables('w4'), '__PH_FOUNDRY_EP__', parameters('foundryEndpoint'))]",
-            "w6": "[replace(variables('w5'), '__PH_FOUNDRY_KEY__', parameters('foundryApiKey'))]",
-            "w7": "[replace(variables('w6'), '__PH_FOUNDRY_MODELS__', parameters('foundryModels'))]",
-            "fullScript": "[replace(variables('w7'), '__PH_SCRIPT__', parameters('scriptContent'))]"
+            "fullScript": "[replace(variables('w4'), '__PH_SCRIPT__', parameters('scriptContent'))]"
           },
           "resources": [
             {
@@ -632,7 +486,6 @@
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Resources/deployments', 'foundry')]",
         "[resourceId('Microsoft.Resources/deployments', 'network')]"
       ]
     },
@@ -676,10 +529,7 @@
           },
           "fqdn": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network'), '2025-04-01').outputs.fqdn.value]"
-          },
-          "foundryEndpoint": "[if(parameters('enableFoundry'), createObject('value', reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.endpoint.value), createObject('value', ''))]",
-          "foundryApiKey": "[if(parameters('enableFoundry'), createObject('value', reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.apiKey.value), createObject('value', ''))]",
-          "foundryModels": "[if(parameters('enableFoundry'), createObject('value', parameters('foundryModelName')), createObject('value', ''))]"
+          }
         },
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -688,7 +538,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "348063105487425448"
+              "templateHash": "1550062513086677543"
             }
           },
           "parameters": {
@@ -754,40 +604,16 @@
               "metadata": {
                 "description": "Fully qualified domain name for HTTPS certificate"
               }
-            },
-            "foundryEndpoint": {
-              "type": "string",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Microsoft Foundry endpoint URL (empty = skip Foundry config)"
-              }
-            },
-            "foundryApiKey": {
-              "type": "securestring",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Microsoft Foundry API key"
-              }
-            },
-            "foundryModels": {
-              "type": "string",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Comma-separated model deployment names"
-              }
             }
           },
           "variables": {
             "encodedGatewayPassword": "[base64(parameters('gatewayPassword'))]",
-            "winWrapperTemplate": "# Auto-generated wrapper — sets parameters before the install script\r\n$EnablePublicHttps = [switch](\"__PH_HTTPS__\" -eq \"true\")\r\n$GatewayPasswordB64 = \"__PH_GWPWD__\"\r\n$Fqdn = \"__PH_FQDN__\"\r\n$FoundryEndpoint = \"__PH_FOUNDRY_EP__\"\r\n$FoundryApiKey = \"__PH_FOUNDRY_KEY__\"\r\n$FoundryModels = \"__PH_FOUNDRY_MODELS__\"\r\n__PH_SCRIPT__",
+            "winWrapperTemplate": "# Auto-generated wrapper\n$EnablePublicHttps = [switch](\"__PH_HTTPS__\" -eq \"true\")\n$GatewayPasswordB64 = \"__PH_GWPWD__\"\n$Fqdn = \"__PH_FQDN__\"\n__PH_SCRIPT__",
             "ww1": "[replace(variables('winWrapperTemplate'), '__PH_HTTPS__', if(parameters('enablePublicHttps'), 'true', 'false'))]",
             "ww2": "[replace(variables('ww1'), '__PH_GWPWD__', variables('encodedGatewayPassword'))]",
             "ww3": "[replace(variables('ww2'), '__PH_FQDN__', parameters('fqdn'))]",
-            "ww4": "[replace(variables('ww3'), '__PH_FOUNDRY_EP__', parameters('foundryEndpoint'))]",
-            "ww5": "[replace(variables('ww4'), '__PH_FOUNDRY_KEY__', parameters('foundryApiKey'))]",
-            "ww6": "[replace(variables('ww5'), '__PH_FOUNDRY_MODELS__', parameters('foundryModels'))]",
             "scriptWithoutParams": "[replace(parameters('scriptContent'), 'param(\r\n    [switch]$EnablePublicHttps,\r\n    [string]$GatewayPasswordB64 = '''',\r\n    [string]$Fqdn = ''''\r\n)', '# (params set by wrapper)')]",
-            "winFullScript": "[replace(variables('ww6'), '__PH_SCRIPT__', variables('scriptWithoutParams'))]"
+            "winFullScript": "[replace(variables('ww3'), '__PH_SCRIPT__', variables('scriptWithoutParams'))]"
           },
           "resources": [
             {
@@ -881,7 +707,6 @@
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Resources/deployments', 'foundry')]",
         "[resourceId('Microsoft.Resources/deployments', 'network')]"
       ]
     }

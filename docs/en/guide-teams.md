@@ -26,7 +26,7 @@ This guide explains how to connect **Microsoft Teams** to the OpenClaw Gateway, 
 ## 1. Prerequisites
 
 - Azure Claw deployment completed (see main [README](../../README.md))
-- AI model provider configured (see [Microsoft Foundry configuration guide](guide-microsoft-foundry.md) or use another provider)
+- AI model provider configured (run `openclaw onboard` to set up OpenAI / Anthropic / Azure OpenAI / etc.)
 - Connected to the VM via SSH (Ubuntu) or RDP (Windows)
 - **Must have `-EnablePublicHttps` enabled** (Teams Webhook requires an HTTPS endpoint) or another way to expose an HTTPS endpoint
 - Azure AD (Microsoft Entra ID) admin permissions (to create App Registration)

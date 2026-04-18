@@ -16,9 +16,6 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Load shared functions
-. "$PSScriptRoot/scripts/shared-functions.ps1"
-
 function Write-Log {
     param([string]$Message, [string]$Level = 'INFO')
     $ts = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
@@ -57,37 +54,7 @@ if (-not $Force) {
 }
 
 Write-Log "Deleting resource group '$ResourceGroup'..."
-
-# First, purge any already soft-deleted AI resources from previous deletions
-Write-Log "Purging any previously soft-deleted AI Services resources..."
-Purge-SoftDeletedAIResource -NamePrefix 'openclaw-ai-' | Out-Null
-
-# List AI Services accounts in the RG before deletion (for purge after)
-$aiAccounts = az cognitiveservices account list --resource-group $ResourceGroup --query "[?starts_with(name, 'openclaw-ai-')].{name:name, location:location}" --output json 2>&1 | ConvertFrom-Json
-$hasAiAccounts = ($aiAccounts -and @($aiAccounts).Count -gt 0)
-
-# Delete the resource group (synchronous to ensure AI resources enter soft-deleted state)
-if ($hasAiAccounts) {
-    Write-Log "Found AI Services account(s) in '$ResourceGroup'. Deleting synchronously to enable purge..." 'INFO'
-    az group delete --name $ResourceGroup --yes
-    Write-Log "Resource group deleted." 'INFO'
-
-    # Now purge the soft-deleted AI resources
-    Write-Log "Purging soft-deleted AI Services resources..."
-    Start-Sleep -Seconds 5
-    $purged = Purge-SoftDeletedAIResource -NamePrefix 'openclaw-ai-'
-    if ($purged) {
-        Write-Log "AI resources purged. Re-deploy will not hit subdomain conflicts." 'INFO'
-    }
-    else {
-        Write-Host "[WARN] Could not purge AI resources. If re-deploying within 48h, run:" -ForegroundColor Yellow
-        Write-Host "  az cognitiveservices account list-deleted --output table" -ForegroundColor Yellow
-        Write-Host "  az cognitiveservices account purge --name <name> --resource-group $ResourceGroup --location <location>" -ForegroundColor Yellow
-    }
-}
-else {
-    az group delete --name $ResourceGroup --yes --no-wait
-    Write-Log "Deletion initiated. The resource group will be removed in the background."
-}
+az group delete --name $ResourceGroup --yes --no-wait
+Write-Log "Deletion initiated. The resource group will be removed in the background."
 
 Write-Host "[INFO] You can check status with: az group show --name $ResourceGroup"
