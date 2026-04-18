@@ -104,7 +104,7 @@ Open `logs/<timestamp>/guide.md` for the complete operations guide.
 
 ### Ubuntu VM
 
-**1. Connect to the server** (credentials in `.env` file):
+**1. Connect to the server**:
 
 ```bash
 ssh <ADMIN_USERNAME>@<VM_PUBLIC_IP>
@@ -119,7 +119,7 @@ http://<VM_PUBLIC_IP>:18789
 # With HTTPS:
 https://<FQDN>  # FQDN is in the .env file
 
-# Gateway login password is in .env as GATEWAY_PASSWORD
+# Gateway login password: deploy.ps1 → GATEWAY_PASSWORD in .env; Portal one-click → the gatewayPassword you typed in the form
 
 # First connection requires device pairing (browser shows "pairing required")
 # SSH into the server and run:
@@ -140,7 +140,7 @@ journalctl -u openclaw -f
 > **Note**: Windows deployment completes in two phases. Phase 1 installs WSL2 and the VM reboots automatically. Phase 2 installs Node.js and OpenClaw after reboot.
 > Wait approximately 5-10 minutes after deployment before connecting via RDP. Check `C:\openclaw\phase2.log` for progress.
 
-**1. Connect to the server** (credentials in `.env` file):
+**1. Connect to the server**:
 
 ```powershell
 mstsc /v:<VM_PUBLIC_IP>
@@ -154,7 +154,7 @@ http://localhost:18789
 # With HTTPS enabled, also accessible externally:
 # https://<FQDN>  # FQDN is in the .env file
 
-# Gateway login password is in .env as GATEWAY_PASSWORD
+# Gateway login password: deploy.ps1 → GATEWAY_PASSWORD in .env; Portal one-click → the gatewayPassword you typed in the form
 
 # First connection requires device pairing (browser shows "pairing required")
 # In PowerShell, run:

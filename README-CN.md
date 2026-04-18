@@ -102,9 +102,15 @@ logs/20260320143052/
 
 部署完成后，打开 `logs/<timestamp>/guide.md` 查看完整操作指南。
 
+> **凭据在哪？**
+>
+> - `deploy.ps1` 部署 → 见 `logs/<timestamp>/.env` 中 `ADMIN_PASSWORD` 和 `GATEWAY_PASSWORD`
+> - Azure Portal 「Deploy to Azure」一键部署 → 即你在表单里填写的 `adminPassword` 和 `gatewayPassword`
+> - 丢失可 SSH 进 VM 后执行 `sudo systemctl cat openclaw | grep OPENCLAW_GATEWAY_PASSWORD` 找回。详见 [运维手册 §10 凭据速查](docs/zh/guide-operations.md#凭据速查登录密码--control-token)。
+
 ### Ubuntu VM
 
-**一、连接远程服务器**（用户名和密码参见 `.env` 文件）：
+**一、连接远程服务器**：
 
 ```bash
 ssh <ADMIN_USERNAME>@<VM_PUBLIC_IP>
@@ -119,7 +125,7 @@ http://<VM_PUBLIC_IP>:18789
 # 启用 HTTPS 时:
 https://<FQDN>  # FQDN 参见 .env 文件
 
-# Gateway 登录密码参见 .env 文件中的 GATEWAY_PASSWORD
+# Gateway 登录密码：deploy.ps1 部署见 .env 中 GATEWAY_PASSWORD；Portal 一键部署即表单填写的 gatewayPassword
 
 # 首次连接需要设备配对（浏览器显示 "pairing required"）
 # SSH 登录服务器后执行：
@@ -140,7 +146,7 @@ journalctl -u openclaw -f
 > **注意**: Windows 部署分两阶段完成。Phase 1 安装 WSL2 后 VM 会自动重启，Phase 2 在重启后自动安装 Node.js 和 OpenClaw。
 > 首次部署后请等待约 5-10 分钟再通过 RDP 连接，确保 Phase 2 完成。可检查 `C:\openclaw\phase2.log` 查看进度。
 
-**一、连接远程服务器**（用户名和密码参见 `.env` 文件）：
+**一、连接远程服务器**：
 
 ```powershell
 mstsc /v:<VM_PUBLIC_IP>
@@ -154,7 +160,7 @@ http://localhost:18789
 # 启用 HTTPS 时，也可从外网访问:
 # https://<FQDN>  # FQDN 参见 .env 文件
 
-# Gateway 登录密码参见 .env 文件中的 GATEWAY_PASSWORD
+# Gateway 登录密码：deploy.ps1 部署见 .env 中 GATEWAY_PASSWORD；Portal 一键部署即表单填写的 gatewayPassword
 
 # 首次连接需要设备配对（浏览器显示 "pairing required"）
 # 在 PowerShell 中执行：

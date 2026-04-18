@@ -548,6 +548,35 @@ $ npm audit -g
 - [ ] API Key 未硬编码在脚本或代码中
 - [ ] `logs/` 目录中的 `.env` 文件未提交到 Git
 
+### 凭据速查（登录密码 / Control Token）
+
+进 Web UI 需要两级凭据：**Gateway 登录密码**（浏览器表单）和**Control Token**（仅 macOS 客户端 / CLI / iOS 节点等远程设备需要）。
+
+#### Gateway 登录密码
+
+凭部署方式不同，获取路径不一样：
+
+| 部署方式                              | 密码位置                                    |
+| ------------------------------------- | ------------------------------------------- |
+| `deploy.ps1`                          | `logs/<timestamp>/.env` 中 `GATEWAY_PASSWORD` |
+| Azure Portal 「Deploy to Azure」一键部署 | 你在部署表单中填写的 `gatewayPassword`          |
+| 两者都丢了                              | 从服务端回查（见下方命令）                     |
+
+```bash
+# SSH 进 VM 后执行（Windows 用 wsl -d Ubuntu -u openclaw -- ...）
+sudo systemctl cat openclaw | grep OPENCLAW_GATEWAY_PASSWORD
+```
+
+轮换密码：
+
+```bash
+# 生成新密码并更新 systemd Environment
+NEW_PWD=$(openssl rand -base64 24)
+sudo systemctl edit openclaw --full   # 把 OPENCLAW_GATEWAY_PASSWORD 改成 $NEW_PWD
+sudo systemctl restart openclaw
+echo "New password: $NEW_PWD"
+```
+
 ### Gateway Control Token（`gateway.auth.token`）
 
 Control Token 是远程客户端（如 macOS 应用、`openclaw` CLI 通过 SSH 隧道、iOS/Android node）连接 Gateway WebSocket 时使用的共享密钥。本项目默认使用 `password` 模式配合 Caddy HTTPS 反代，如果需要切换到 `token` 模式（例如接入 macOS 应用的 “Remote over SSH”或给 iOS/Android node 配对），可按以下方式获取。
@@ -611,7 +640,7 @@ $ sudo systemctl restart openclaw             # 重启服务应用
 | **Gateway 启动失败**                     | 端口被占用 / 配置文件语法错误              | `journalctl -u openclaw -n 50` 查看错误；`python3 -m json.tool ~/.openclaw/openclaw.json` 验证 JSON |
 | **`openclaw models list` 报错**          | 配置中 api 类型不合法或缺少 models 数组    | 检查 provider 的 `api` 字段是否为合法值（如 `openai-responses`），确保有 `models` 数组              |
 | **Web UI 能打开但模型调用失败**          | API Key 错误 / 端点不可达 / 模型 ID 不匹配 | `curl` 直接测试端点；确认 API Key 有效；确认模型 ID 与部署名一致                                    |
-| **浏览器显示 401 Unauthorized**          | Gateway 密码认证已启用                     | 输入正确的 Gateway 密码（见 `.env` 文件中的 `GATEWAY_PASSWORD`）                                    |
+| **浏览器显示 401 Unauthorized**          | Gateway 密码认证已启用                     | 输入正确的 Gateway 密码（`deploy.ps1` 在 `.env` 的 `GATEWAY_PASSWORD`；Portal 一键部署即表单填的 `gatewayPassword`；忘了见 [§10 凭据速查](#凭据速查登录密码--control-token)）                                    |
 | **浏览器提示 `origin not allowed`** | 从非 loopback 域名访问 Control UI，但 `gateway.controlUi.allowedOrigins` 未加白 | 参见下面 [11.1 Control UI “origin not allowed”](#111-control-ui-origin-not-allowed) 节 |
 | **Slack/Teams 消息无响应**               | 通道未启用 / Token 失效 / 网络不通         | 检查 `openclaw.json` 中通道配置；`openclaw doctor` 查看通道状态                                     |
 | **WSL 重启后服务不可达**                 | WSL IP 变化导致端口代理失效                | 运行 `C:\openclaw\refresh-portproxy.ps1`                                                            |
