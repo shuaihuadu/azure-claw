@@ -10,7 +10,7 @@
 - 🖥️ **双系统可选**：Ubuntu 24.04 LTS（默认推荐）/ Windows 11 + WSL2
 - 🔒 **默认生产姿势**：Caddy 反向代理 + Let's Encrypt 自动证书 + Gateway 密码认证 + 设备配对
 - 📦 **基础设施即代码**：Bicep 模板管理 VNet / NSG / VM，也可用 Azure Portal「Deploy to Azure」一键按钮
-- 🧹 **清理利索**：`destroy.ps1` 一条命令干净收场，不留计费残留
+- 🧹 **清理利索**：`destroy.ps1` 一条命令干净收场，资源组整体删除
 - 📝 **完整文档**：中英双语运维手册，涵盖 Slack / Teams / 故障排查 / 升级备份
 
 > **说明**：OpenClaw 本身不必多介绍了——自托管 AI 助手网关，把 Telegram / Slack / Teams / Discord / iMessage 等统一接到后端 AI 模型（Claude / GPT / Gemini / Azure OpenAI）上。详见 [openclaw.ai](https://openclaw.ai/)。
@@ -52,7 +52,7 @@ Azure Claw 要做的，就是把"云上跑"这件事收敛成一条命令。
 5. 启用 systemd 常驻 + 崩溃自动重启；
 6. 把凭据写到本地 `logs/<时间戳>/.env`，生成一份量身定做的 `guide.md`。
 
-部署完成，浏览器打开 `https://<你的域名>`，输入密码，在服务器上执行 `openclaw onboard` 配好模型和通道，就可以在 Telegram 里和你自己的 AI 助手聊天了。
+部署完成，浏览器打开 Azure 自动分配的域名（形如 `https://openclaw-xxxx.eastasia.cloudapp.azure.com`，**不用你自己买域名**），输入密码，在服务器上执行 `openclaw onboard` 配好模型和通道，就可以在 Telegram 里和你自己的 AI 助手聊天了。
 
 ## 为什么值得一试
 
@@ -107,13 +107,13 @@ Azure Claw 默认配置是：
 .\destroy.ps1
 ```
 
-把整个资源组删掉，不留任何残留计费资源。
+把整个资源组删掉，不留任何残留资源。
 
 ## 开箱体验（≈ 10 分钟）
 
 ### 前置条件
 
-- Azure 订阅（[免费注册](https://azure.microsoft.com/free/)，首月有 200 美元额度）
+- Azure 订阅（[注册入口](https://azure.microsoft.com/)）
 - Azure CLI（[安装指南](https://learn.microsoft.com/cli/azure/install-azure-cli)）
 - PowerShell 7+（macOS / Linux 也能跑，不是 Windows 专属）
 - 一个 AI 模型的 API Key（Claude / OpenAI / Azure OpenAI 任选其一）
@@ -134,22 +134,10 @@ az login
 
 部署完成后，按 `logs/<时间戳>/guide.md` 里的步骤：
 
-1. SSH 进 VM
-2. 运行 `openclaw onboard` 填 API Key、选通道（推荐先玩 Telegram，只需要一个 Bot Token）
-3. 浏览器登录审批设备
+1. SSH 进 VM，运行 `openclaw onboard` 填 API Key、选通道（推荐先玩 Telegram，只需要一个 Bot Token）
+2. 浏览器打开 `https://<Azure 分配的域名>`，用 `.env` 里的 `GATEWAY_PASSWORD` 登录，页面会提示 "pairing required"
+3. 回到 SSH 执行 `openclaw devices approve --latest` 审批这次配对
 4. 掏出手机，打开 Telegram，开始聊
-
-## 成本参考
-
-默认规格 `Standard_D4s_v5`（4 vCPU / 16 GB）在 East Asia 按需大约 **¥1,200 / 月**。
-
-想省钱的同学：
-
-- 轻度使用可用 `Standard_B2als_v2`（2 vCPU / 4 GB）约 ¥200/月
-- 或者用 Azure 的 [B 系列可抢占实例 / Spot VM](https://azure.microsoft.com/pricing/spot-advisor/)
-- 或者直接开启 [自动关机](https://learn.microsoft.com/azure/virtual-machines/auto-shutdown-vm)，下班后自动关、早上 10 点再开
-
-也可以**用完就 `destroy.ps1` 删掉**，下次想用再一键部署，云原生的意义就在这里。
 
 ## 适合谁用
 
@@ -182,4 +170,4 @@ Azure Claw 就是这份胶水：**帮你把"我想在云上跑一个自己的 AI
 - OpenClaw 官网：<https://openclaw.ai/>
 - OpenClaw 文档：<https://docs.openclaw.ai/>
 - Azure Claw 仓库：<https://github.com/shuaihuadu/azure-claw>
-- Azure 免费注册：<https://azure.microsoft.com/free/>
+- Azure 官网：<https://azure.microsoft.com/>
