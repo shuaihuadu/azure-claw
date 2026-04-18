@@ -480,6 +480,24 @@ $rgExists = az group exists --name $ResourceGroup 2>&1
 if ($rgExists -eq 'true') {
     $existingRg = az group show --name $ResourceGroup --output json | ConvertFrom-Json
     Write-Log "Resource group '$ResourceGroup' already exists in '$($existingRg.location)'." 'WARN'
+
+    # Check if an openclaw-vm is already present. Azure ARM treats osProfile
+    # (including adminPassword) as immutable once the VM is provisioned, so
+    # a re-deploy over an existing VM fails with a misleading
+    # 'password must satisfy 3 of complexity requirements' error.
+    $existingVm = az vm show --resource-group $ResourceGroup --name 'openclaw-vm' --output json 2>$null
+    if ($existingVm) {
+        Write-Log "An existing 'openclaw-vm' was found in this resource group." 'ERROR'
+        Write-Host ""
+        Write-Host "  Azure does not allow changing the admin password on an existing VM." -ForegroundColor Yellow
+        Write-Host "  Re-deploying over it will fail with a misleading 'password complexity' error." -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  Run the following first, then re-run this script:" -ForegroundColor Cyan
+        Write-Host "    .\destroy.ps1 -ResourceGroup $ResourceGroup -Force" -ForegroundColor Cyan
+        Write-Host ""
+        exit 1
+    }
+
     Write-Host "  Existing resources will be updated or may conflict." -ForegroundColor Yellow
     if (-not $isInteractive) {
         Write-Log 'Proceeding with existing resource group (non-interactive mode).' 'INFO'
