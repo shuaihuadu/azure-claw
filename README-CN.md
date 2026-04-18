@@ -127,15 +127,15 @@ https://<FQDN>  # FQDN 参见 .env 文件
 
 # Gateway 登录密码：deploy.ps1 部署见 .env 中 GATEWAY_PASSWORD；Portal 一键部署即表单填写的 gatewayPassword
 
-# 首次连接需要设备配对（浏览器显示 "pairing required"）
-# SSH 登录服务器后执行：
-openclaw devices approve --latest
-
 # 检查服务状态
 sudo systemctl status openclaw
 
-# 运行交互式配置（设置 API Key、通道等）
+# 运行交互式配置（设置 API Key、通道等）——请先做这一步
 openclaw onboard
+
+# onboard 完成后，浏览器用正确密码登录 → 显示 "pairing required"
+# SSH 服务器审批：
+openclaw devices approve --latest
 
 # 查看 Gateway 日志
 journalctl -u openclaw -f
@@ -170,15 +170,15 @@ http://localhost:18789
 
 # Gateway 登录密码：deploy.ps1 部署见 .env 中 GATEWAY_PASSWORD；Portal 一键部署即表单填写的 gatewayPassword
 
-# 首次连接需要设备配对（浏览器显示 "pairing required"）
-# 在 PowerShell 中执行：
-wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest
-
-# 打开 PowerShell 运行诊断
+# 在 PowerShell 运行诊断
 openclaw doctor
 
-# 运行交互式配置
+# 运行交互式配置——请先做这一步
 openclaw onboard --install-daemon
+
+# onboard 完成后，浏览器用正确密码登录 → 显示 "pairing required"
+# 在 PowerShell 中执行审批：
+wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest
 
 # ---- Control Token（macOS / iOS / Android / CLI 远程连接时需要）----
 # 查看当前 token

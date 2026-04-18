@@ -121,15 +121,15 @@ https://<FQDN>  # FQDN is in the .env file
 
 # Gateway login password: deploy.ps1 → GATEWAY_PASSWORD in .env; Portal one-click → the gatewayPassword you typed in the form
 
-# First connection requires device pairing (browser shows "pairing required")
-# SSH into the server and run:
-openclaw devices approve --latest
-
 # Check service status
 sudo systemctl status openclaw
 
-# Run interactive setup (configure API Key, channels, etc.)
+# Run interactive setup (configure API Key, channels, etc.) — do this FIRST
 openclaw onboard
+
+# After onboard completes, open the Web UI with the correct password → browser shows "pairing required"
+# Then SSH approve:
+openclaw devices approve --latest
 
 # View Gateway logs
 journalctl -u openclaw -f
@@ -164,15 +164,15 @@ http://localhost:18789
 
 # Gateway login password: deploy.ps1 → GATEWAY_PASSWORD in .env; Portal one-click → the gatewayPassword you typed in the form
 
-# First connection requires device pairing (browser shows "pairing required")
-# In PowerShell, run:
-wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest
-
 # Run diagnostics
 openclaw doctor
 
-# Run interactive setup
+# Run interactive setup — do this FIRST
 openclaw onboard --install-daemon
+
+# After onboard completes, open the Web UI with the correct password → browser shows "pairing required"
+# Then from PowerShell:
+wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest
 
 # ---- Control Token (only needed for macOS / iOS / Android / CLI remote clients) ----
 # View current token

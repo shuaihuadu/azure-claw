@@ -741,15 +741,18 @@ OpenClaw Gateway 默认对每个浏览器/客户端采用 **设备级配对**（
 
 ### 12.1 首次配对流程
 
-1. 浏览器访问 Control UI（`https://<FQDN>` 或 `http://<IP>:18789`），输入 `GATEWAY_PASSWORD` 后点击连接
-2. 页面提示 `pairing required` / “等待服务器审批”
-3. SSH 进 VM 执行（Windows 则是 `wsl -d Ubuntu -u openclaw -- ...`）：
+> **顺序很重要**：浏览器密码验证通过后 Gateway 才会生成配对请求。密码/Token 不对时浏览器会直接报 401，服务端 `openclaw devices list --pending` 一直为空，即使执行 `approve` 也无内容可审批。
+
+1. SSH 进 VM 执行 `openclaw onboard` 配置模型 API Key（首次部署后必做）
+2. 浏览器访问 Control UI（`https://<FQDN>` 或 `http://<IP>:18789`），输入 `GATEWAY_PASSWORD` 后点击连接
+3. 页面提示 `pairing required` / “等待服务器审批”（这才说明密码验证通过）
+4. SSH 进 VM（Windows 则是 `wsl -d Ubuntu -u openclaw -- ...`）：
 
 ```bash
 openclaw devices approve --latest
 ```
 
-4. 浏览器自动完成连接
+5. 浏览器自动完成连接
 
 ### 12.2 常用命令
 

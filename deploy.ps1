@@ -617,7 +617,7 @@ sudo systemctl restart openclaw
 
 > 详见 [运维手册 §10 Gateway Control Token](../../docs/zh/guide-operations.md#gateway-control-tokengatewayauthtoken)。
 
-> **首次连接节奏**：(三) 加白 Origin（如需）→ (四) 浏览器审批配对 → 进入 Web UI 后运行 ``openclaw onboard`` 配置模型 API Key → ``openclaw doctor`` 自检。
+> **首次连接节奏**：(三) 加白 Origin（如需）→ SSH 运行 ``openclaw onboard`` 配置模型 API Key → 浏览器用正确密码登录触发配对 → (四) 服务器端 ``openclaw devices approve --latest`` → ``openclaw doctor`` 自检。
 
 ## 三、配置访问 Origin（如需追加）
 
@@ -634,7 +634,7 @@ sudo systemctl restart openclaw
 
 ## 四、设备配对
 
-首次通过浏览器连接 Gateway 时，需要进行设备配对：
+首次通过浏览器连接 Gateway 前，请先 SSH/RDP 进 VM 运行 ``openclaw onboard`` 配置模型 API Key 与 token，再按以下步骤完成设备配对：
 
 1. 在浏览器中打开 Web 控制台，输入 Gateway Password 后连接
 2. 页面会显示 **"pairing required"**，表示需要在服务器端审批
@@ -700,7 +700,7 @@ sudo systemctl restart openclaw
 
 > 详见 [运维手册 §10 Gateway Control Token](../../docs/zh/guide-operations.md#gateway-control-tokengatewayauthtoken)。
 
-> **首次连接节奏**：(三) 加白 Origin（**必做**）→ (四) 浏览器审批配对 → 进入 Web UI 后运行 ``openclaw onboard`` 配置模型 API Key → ``openclaw doctor`` 自检。
+> **首次连接节奏**：(三) 加白 Origin（**必做**）→ SSH 运行 ``openclaw onboard`` 配置模型 API Key → 浏览器用正确密码登录触发配对 → (四) 服务器端 ``openclaw devices approve --latest`` → ``openclaw doctor`` 自检。
 
 ## 三、配置访问 Origin（必做）
 
@@ -716,7 +716,7 @@ sudo systemctl restart openclaw
 
 ## 四、设备配对
 
-首次通过浏览器连接 Gateway 时，需要进行设备配对：
+首次通过浏览器连接 Gateway 前，请先 SSH/RDP 进 VM 运行 ``openclaw onboard`` 配置模型 API Key 与 token，再按以下步骤完成设备配对：
 
 1. 在浏览器中打开 Web 控制台，输入 Gateway Password 后连接
 2. 页面会显示 **"pairing required"**，表示需要在服务器端审批
@@ -784,7 +784,7 @@ wsl -d Ubuntu -u openclaw -- sudo systemctl restart openclaw
 
 > 详见 [运维手册 §10 Gateway Control Token](../../docs/zh/guide-operations.md#gateway-control-tokengatewayauthtoken)。
 
-> **首次连接节奏**：(三) 加白 Origin（如需）→ (四) 浏览器审批配对 → 进入 Web UI 后运行 ``openclaw onboard`` 配置模型 API Key → ``openclaw doctor`` 自检。
+> **首次连接节奏**：(三) 加白 Origin（如需）→ SSH 运行 ``openclaw onboard`` 配置模型 API Key → 浏览器用正确密码登录触发配对 → (四) 服务器端 ``openclaw devices approve --latest`` → ``openclaw doctor`` 自检。
 
 ## 三、配置访问 Origin（如需追加）
 
@@ -800,7 +800,7 @@ wsl -d Ubuntu -u openclaw -- sudo systemctl restart openclaw
 
 ## 四、设备配对
 
-首次通过浏览器连接 Gateway 时，需要进行设备配对：
+首次通过浏览器连接 Gateway 前，请先 SSH/RDP 进 VM 运行 ``openclaw onboard`` 配置模型 API Key 与 token，再按以下步骤完成设备配对：
 
 1. 在浏览器中打开 Web 控制台，输入 Gateway Password 后连接
 2. 页面会显示 **"pairing required"**，表示需要在服务器端审批
@@ -868,7 +868,7 @@ wsl -d Ubuntu -u openclaw -- sudo systemctl restart openclaw
 
 ## 三、设备配对
 
-首次通过浏览器连接 Gateway 时，需要进行设备配对：
+首次通过浏览器连接 Gateway 前，请先 SSH/RDP 进 VM 运行 ``openclaw onboard`` 配置模型 API Key 与 token，再按以下步骤完成设备配对：
 
 1. 在浏览器中打开 Web 控制台，输入 Gateway Password 后连接
 2. 页面会显示 **"pairing required"**，表示需要在服务器端审批

@@ -712,15 +712,18 @@ OpenClaw Gateway requires a per-browser/per-client **device pairing** approval. 
 
 ### 12.1 First-time pairing flow
 
-1. Open the Control UI in your browser (`https://<FQDN>` or `http://<IP>:18789`), enter `GATEWAY_PASSWORD`, click connect
-2. Browser shows `pairing required` / "waiting for server approval"
-3. SSH into the VM (Windows: `wsl -d Ubuntu -u openclaw -- ...`) and run:
+> **Order matters**: the gateway only produces a pairing request after the browser's password check passes. If the password/token is wrong the browser gets a flat 401, the server never sees a pairing request, and `openclaw devices list --pending` stays empty — there is nothing for `approve` to act on.
+
+1. SSH into the VM and run `openclaw onboard` to configure your model API key (required after the first deploy)
+2. Open the Control UI in your browser (`https://<FQDN>` or `http://<IP>:18789`), enter `GATEWAY_PASSWORD`, click connect
+3. Browser shows `pairing required` / "waiting for server approval" (this confirms the password check passed)
+4. SSH into the VM (Windows: `wsl -d Ubuntu -u openclaw -- ...`) and run:
 
 ```bash
 openclaw devices approve --latest
 ```
 
-4. Browser auto-connects.
+5. Browser auto-connects.
 
 ### 12.2 Common commands
 
