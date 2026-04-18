@@ -506,18 +506,34 @@ Write-Log 'Deploying Bicep template (this may take several minutes)...' 'STEP'
 # Pause transcript to prevent passwords from leaking into deploy.log
 Stop-Transcript | Out-Null
 
-$deploymentResult = az deployment group create `
-    --resource-group $ResourceGroup `
-    --template-file $TemplateFile `
-    --parameters `
-    "location=$Location" `
-    "osType=$OsType" `
-    "vmSize=$VmSize" `
-    "adminUsername=$AdminUsername" `
-    "adminPassword=$AdminPassword" `
-    "enablePublicHttps=$($EnablePublicHttps.ToString().ToLower())" `
-    "gatewayPassword=$GatewayPassword" `
-    --output json | ConvertFrom-Json
+# Write parameters to a temp JSON file to completely avoid shell/arg quoting
+# issues with special characters ($, =, &, etc.) in passwords.
+$paramFile = Join-Path ([System.IO.Path]::GetTempPath()) "azure-claw-params-$([guid]::NewGuid().ToString('N')).json"
+$paramJson = @{
+    '$schema'      = 'https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#'
+    contentVersion = '1.0.0.0'
+    parameters     = @{
+        location          = @{ value = $Location }
+        osType            = @{ value = $OsType }
+        vmSize            = @{ value = $VmSize }
+        adminUsername     = @{ value = $AdminUsername }
+        adminPassword     = @{ value = $AdminPassword }
+        enablePublicHttps = @{ value = [bool]$EnablePublicHttps }
+        gatewayPassword   = @{ value = $GatewayPassword }
+    }
+} | ConvertTo-Json -Depth 10
+[System.IO.File]::WriteAllText($paramFile, $paramJson, [System.Text.UTF8Encoding]::new($false))
+
+try {
+    $deploymentResult = az deployment group create `
+        --resource-group $ResourceGroup `
+        --template-file $TemplateFile `
+        --parameters "@$paramFile" `
+        --output json | ConvertFrom-Json
+}
+finally {
+    Remove-Item -Path $paramFile -Force -ErrorAction SilentlyContinue
+}
 
 # Resume transcript (safe — no more secrets in command output)
 Start-Transcript -Path $transcriptPath -Append | Out-Null
