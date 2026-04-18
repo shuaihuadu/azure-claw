@@ -458,6 +458,38 @@ if ([string]::IsNullOrEmpty($AdminPassword)) {
     Write-Log 'Admin password auto-generated.' 'INFO'
 }
 
+# --- Client-side validation of admin password ---
+# Azure VM requires: 12-72 chars AND at least 3 of the 4 categories
+# (upper / lower / digit / special). Validating here gives an immediate,
+# clear error instead of a confusing one from ARM.
+$pwLen = $AdminPassword.Length
+$hasUpper = $AdminPassword -cmatch '[A-Z]'
+$hasLower = $AdminPassword -cmatch '[a-z]'
+$hasDigit = $AdminPassword -match '[0-9]'
+$hasSpecial = $AdminPassword -match '[^A-Za-z0-9]'
+$categoryCount = @($hasUpper, $hasLower, $hasDigit, $hasSpecial) | Where-Object { $_ } | Measure-Object | Select-Object -ExpandProperty Count
+
+Write-Log "Admin password check: length=$pwLen, upper=$hasUpper, lower=$hasLower, digit=$hasDigit, special=$hasSpecial" 'INFO'
+
+if ($pwLen -lt 12 -or $pwLen -gt 72) {
+    Write-Log "Admin password length is $pwLen. Azure requires 12-72 characters." 'ERROR'
+    exit 1
+}
+if ($categoryCount -lt 3) {
+    Write-Log "Admin password only satisfies $categoryCount of 4 complexity categories. Azure requires at least 3." 'ERROR'
+    exit 1
+}
+
+# Azure VM disallowed passwords (common weak passwords)
+$disallowedPasswords = @(
+    'abc@123', 'iloveyou!', 'P@$$w0rd', 'P@ssw0rd', 'P@ssword123',
+    'Pa$$word', 'pass@word1', 'Password!', 'Password1', 'Password22'
+)
+if ($disallowedPasswords -contains $AdminPassword) {
+    Write-Log "Admin password is on Azure's disallowed list. Choose a different password." 'ERROR'
+    exit 1
+}
+
 $GatewayPassword = New-StrongPassword
 Write-Log 'Gateway password auto-generated.' 'INFO'
 
