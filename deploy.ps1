@@ -299,10 +299,10 @@ if ($isInteractive) {
 
     # Recommended sizes matching the OS choice
     if ($OsType -eq 'Windows') {
-        $recommendedSizes = @('Standard_B2as_v2', 'Standard_B4as_v2', 'Standard_D2s_v5', 'Standard_D4s_v5')
+        $recommendedSizes = @('Standard_D4s_v5', 'Standard_B2as_v2', 'Standard_B4as_v2', 'Standard_D2s_v5')
     }
     else {
-        $recommendedSizes = @('Standard_B2als_v2', 'Standard_B2as_v2', 'Standard_B4as_v2', 'Standard_D2s_v5')
+        $recommendedSizes = @('Standard_D4s_v5', 'Standard_B2als_v2', 'Standard_B2as_v2', 'Standard_B4as_v2', 'Standard_D2s_v5')
     }
 
     # Query actually available sizes in the region
