@@ -139,6 +139,14 @@ openclaw onboard
 
 # 查看 Gateway 日志
 journalctl -u openclaw -f
+
+# ---- Control Token（macOS / iOS / Android / CLI 远程连接时需要）----
+# 查看当前 token（部署脚本已自动安装 jq；若报 'command not found' 先 sudo apt-get install -y jq）
+jq -r '.gateway.auth.token // "<not set>"' ~/.openclaw/openclaw.json
+
+# 没有 token？生成一个并重启服务：
+openclaw doctor --generate-gateway-token
+sudo systemctl restart openclaw
 ```
 
 ### Windows 11 VM
@@ -171,6 +179,14 @@ openclaw doctor
 
 # 运行交互式配置
 openclaw onboard --install-daemon
+
+# ---- Control Token（macOS / iOS / Android / CLI 远程连接时需要）----
+# 查看当前 token
+wsl -d Ubuntu -u openclaw -- jq -r '.gateway.auth.token // "<not set>"' ~/.openclaw/openclaw.json
+
+# 没有则生成一个
+wsl -d Ubuntu -u openclaw -- openclaw doctor --generate-gateway-token
+wsl -d Ubuntu -u openclaw -- sudo systemctl restart openclaw
 ```
 
 ## 清理资源

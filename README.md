@@ -133,6 +133,14 @@ openclaw onboard
 
 # View Gateway logs
 journalctl -u openclaw -f
+
+# ---- Control Token (only needed for macOS / iOS / Android / CLI remote clients) ----
+# View current token (deploy script auto-installs jq; if 'command not found': sudo apt-get install -y jq)
+jq -r '.gateway.auth.token // "<not set>"' ~/.openclaw/openclaw.json
+
+# No token yet? Generate one and restart the service:
+openclaw doctor --generate-gateway-token
+sudo systemctl restart openclaw
 ```
 
 ### Windows 11 VM
@@ -165,6 +173,14 @@ openclaw doctor
 
 # Run interactive setup
 openclaw onboard --install-daemon
+
+# ---- Control Token (only needed for macOS / iOS / Android / CLI remote clients) ----
+# View current token
+wsl -d Ubuntu -u openclaw -- jq -r '.gateway.auth.token // "<not set>"' ~/.openclaw/openclaw.json
+
+# No token yet? Generate one:
+wsl -d Ubuntu -u openclaw -- openclaw doctor --generate-gateway-token
+wsl -d Ubuntu -u openclaw -- sudo systemctl restart openclaw
 ```
 
 ## Cleanup

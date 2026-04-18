@@ -35,7 +35,7 @@ DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
 
 # 2. Install dependencies
 log ">>> Installing dependencies..."
-DEBIAN_FRONTEND=noninteractive apt-get install -y curl git build-essential
+DEBIAN_FRONTEND=noninteractive apt-get install -y curl git build-essential jq
 
 # 3. Install Node.js 24 via NodeSource
 log ">>> Installing Node.js 24..."
