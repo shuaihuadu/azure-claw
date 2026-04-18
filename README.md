@@ -74,7 +74,7 @@ Deployment parameters:
 | -------------------- | --------------------------------------- | ------------------- |
 | `-Location`          | Azure region                            | `eastasia`          |
 | `-OsType`            | Operating system (`Ubuntu` / `Windows`) | `Ubuntu`            |
-| `-VmSize`            | VM size                                 | `Standard_B2als_v2` |
+| `-VmSize`            | VM size                                 | `Standard_D4s_v5`   |
 | `-AdminUsername`     | Admin username                          | `azureclaw`         |
 | `-AdminPassword`     | Admin password                          | Auto-generated      |
 | `-ResourceGroup`     | Azure resource group name               | `rg-openclaw`       |
@@ -243,7 +243,8 @@ azure-claw/
 | --------- | ------------------- | ---- | ----- | ------------------------------------------ |
 | Light use | Standard_B2als_v2   | 2    | 4 GB  | Basic Gateway + 1-2 channels (Ubuntu only) |
 | Daily use | Standard_B2as_v2    | 2    | 8 GB  | Multi-channel + Browser tools              |
-| Heavy use | Standard_B4as_v2    | 4    | 16 GB | Multi-agent + Browser + Sandbox            |
+| **Default (recommended)** | **Standard_D4s_v5** | **4** | **16 GB** | **Default; multi-agent + Browser + sandbox with steady perf** |
+| Heavy use | Standard_B4as_v2    | 4    | 16 GB | Multi-agent + Browser + sandbox, cheaper but Burstable-throttled |
 
 ## Security
 

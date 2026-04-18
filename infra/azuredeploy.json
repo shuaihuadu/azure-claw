@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "3376682956831262298"
+      "templateHash": "6887617666624962873"
     }
   },
   "parameters": {
@@ -29,7 +29,7 @@
     },
     "vmSize": {
       "type": "string",
-      "defaultValue": "Standard_B2als_v2",
+      "defaultValue": "Standard_D4s_v5",
       "metadata": {
         "description": "VM size SKU"
       }

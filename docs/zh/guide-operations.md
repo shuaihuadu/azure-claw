@@ -556,11 +556,11 @@ $ npm audit -g
 
 凭部署方式不同，获取路径不一样：
 
-| 部署方式                              | 密码位置                                    |
-| ------------------------------------- | ------------------------------------------- |
-| `deploy.ps1`                          | `logs/<timestamp>/.env` 中 `GATEWAY_PASSWORD` |
-| Azure Portal 「Deploy to Azure」一键部署 | 你在部署表单中填写的 `gatewayPassword`          |
-| 两者都丢了                              | 从服务端回查（见下方命令）                     |
+| 部署方式                                 | 密码位置                                      |
+| ---------------------------------------- | --------------------------------------------- |
+| `deploy.ps1`                             | `logs/<timestamp>/.env` 中 `GATEWAY_PASSWORD` |
+| Azure Portal 「Deploy to Azure」一键部署 | 你在部署表单中填写的 `gatewayPassword`        |
+| 两者都丢了                               | 从服务端回查（见下方命令）                    |
 
 ```bash
 # SSH 进 VM 后执行（Windows 用 wsl -d Ubuntu -u openclaw -- ...）
@@ -635,19 +635,19 @@ $ sudo systemctl restart openclaw             # 重启服务应用
 
 ## 11. 常见问题速查表
 
-| 问题                                     | 原因                                       | 解决方案                                                                                            |
-| ---------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| **Gateway 启动失败**                     | 端口被占用 / 配置文件语法错误              | `journalctl -u openclaw -n 50` 查看错误；`python3 -m json.tool ~/.openclaw/openclaw.json` 验证 JSON |
-| **`openclaw models list` 报错**          | 配置中 api 类型不合法或缺少 models 数组    | 检查 provider 的 `api` 字段是否为合法值（如 `openai-responses`），确保有 `models` 数组              |
-| **Web UI 能打开但模型调用失败**          | API Key 错误 / 端点不可达 / 模型 ID 不匹配 | `curl` 直接测试端点；确认 API Key 有效；确认模型 ID 与部署名一致                                    |
-| **浏览器显示 401 Unauthorized**          | Gateway 密码认证已启用                     | 输入正确的 Gateway 密码（`deploy.ps1` 在 `.env` 的 `GATEWAY_PASSWORD`；Portal 一键部署即表单填的 `gatewayPassword`；忘了见 [§10 凭据速查](#凭据速查登录密码--control-token)）                                    |
-| **浏览器提示 `origin not allowed`** | 从非 loopback 域名访问 Control UI，但 `gateway.controlUi.allowedOrigins` 未加白 | 参见下面 [11.1 Control UI “origin not allowed”](#111-control-ui-origin-not-allowed) 节 |
-| **Slack/Teams 消息无响应**               | 通道未启用 / Token 失效 / 网络不通         | 检查 `openclaw.json` 中通道配置；`openclaw doctor` 查看通道状态                                     |
-| **WSL 重启后服务不可达**                 | WSL IP 变化导致端口代理失效                | 运行 `C:\openclaw\refresh-portproxy.ps1`                                                            |
-| **`npm install -g openclaw` 报权限错误** | Ubuntu 上需要 sudo                         | 使用 `sudo npm install -g openclaw@latest`                                                          |
-| **HTTPS 证书过期/未获取**                | 443 端口未放行 / DNS 未解析                | 检查 NSG 放行 443+80；`nslookup <FQDN>` 确认 DNS                                                    |
-| **VM SSH/RDP 连不上**                    | VM 已停止 / NSG 规则缺失 / 密码错误        | Azure Portal 检查 VM 状态；检查 NSG 入站规则                                                        |
-| **聊天 UI 模型列表显示旧模型**           | Agent 缓存未刷新                           | 删除 `~/.openclaw/agents/main/agent/models.json` 后重启 Gateway                                     |
+| 问题                                     | 原因                                                                            | 解决方案                                                                                                                                                                      |
+| ---------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Gateway 启动失败**                     | 端口被占用 / 配置文件语法错误                                                   | `journalctl -u openclaw -n 50` 查看错误；`python3 -m json.tool ~/.openclaw/openclaw.json` 验证 JSON                                                                           |
+| **`openclaw models list` 报错**          | 配置中 api 类型不合法或缺少 models 数组                                         | 检查 provider 的 `api` 字段是否为合法值（如 `openai-responses`），确保有 `models` 数组                                                                                        |
+| **Web UI 能打开但模型调用失败**          | API Key 错误 / 端点不可达 / 模型 ID 不匹配                                      | `curl` 直接测试端点；确认 API Key 有效；确认模型 ID 与部署名一致                                                                                                              |
+| **浏览器显示 401 Unauthorized**          | Gateway 密码认证已启用                                                          | 输入正确的 Gateway 密码（`deploy.ps1` 在 `.env` 的 `GATEWAY_PASSWORD`；Portal 一键部署即表单填的 `gatewayPassword`；忘了见 [§10 凭据速查](#凭据速查登录密码--control-token)） |
+| **浏览器提示 `origin not allowed`**      | 从非 loopback 域名访问 Control UI，但 `gateway.controlUi.allowedOrigins` 未加白 | 参见下面 [11.1 Control UI “origin not allowed”](#111-control-ui-origin-not-allowed) 节                                                                                        |
+| **Slack/Teams 消息无响应**               | 通道未启用 / Token 失效 / 网络不通                                              | 检查 `openclaw.json` 中通道配置；`openclaw doctor` 查看通道状态                                                                                                               |
+| **WSL 重启后服务不可达**                 | WSL IP 变化导致端口代理失效                                                     | 运行 `C:\openclaw\refresh-portproxy.ps1`                                                                                                                                      |
+| **`npm install -g openclaw` 报权限错误** | Ubuntu 上需要 sudo                                                              | 使用 `sudo npm install -g openclaw@latest`                                                                                                                                    |
+| **HTTPS 证书过期/未获取**                | 443 端口未放行 / DNS 未解析                                                     | 检查 NSG 放行 443+80；`nslookup <FQDN>` 确认 DNS                                                                                                                              |
+| **VM SSH/RDP 连不上**                    | VM 已停止 / NSG 规则缺失 / 密码错误                                             | Azure Portal 检查 VM 状态；检查 NSG 入站规则                                                                                                                                  |
+| **聊天 UI 模型列表显示旧模型**           | Agent 缓存未刷新                                                                | 删除 `~/.openclaw/agents/main/agent/models.json` 后重启 Gateway                                                                                                               |
 
 ---
 
