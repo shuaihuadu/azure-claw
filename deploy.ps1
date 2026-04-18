@@ -78,7 +78,9 @@ function New-StrongPassword {
     $upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
     $lower = 'abcdefghijklmnopqrstuvwxyz'
     $digits = '0123456789'
-    $special = '!@#$%^&*()-_=+'
+    # Safe specials: no '=' (breaks az --parameters key=value), no '$' (PS expansion),
+    # no '(', ')', '&' (shell-problematic). Azure VM also disallows some chars.
+    $special = '!@#%^*_-+'
     $all = $upper + $lower + $digits + $special
     $pw = @()
     $pw += $upper[(Get-Random -Maximum $upper.Length)]
@@ -508,13 +510,13 @@ $deploymentResult = az deployment group create `
     --resource-group $ResourceGroup `
     --template-file $TemplateFile `
     --parameters `
-    location=$Location `
-    osType=$OsType `
-    vmSize=$VmSize `
-    adminUsername=$AdminUsername `
-    adminPassword=$AdminPassword `
-    enablePublicHttps=$($EnablePublicHttps.ToString().ToLower()) `
-    gatewayPassword=$GatewayPassword `
+    "location=$Location" `
+    "osType=$OsType" `
+    "vmSize=$VmSize" `
+    "adminUsername=$AdminUsername" `
+    "adminPassword=$AdminPassword" `
+    "enablePublicHttps=$($EnablePublicHttps.ToString().ToLower())" `
+    "gatewayPassword=$GatewayPassword" `
     --output json | ConvertFrom-Json
 
 # Resume transcript (safe — no more secrets in command output)
