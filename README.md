@@ -70,15 +70,15 @@ After deployment, SSH into the VM and run `openclaw onboard` to interactively co
 
 Deployment parameters:
 
-| Parameter            | Description                             | Default             |
-| -------------------- | --------------------------------------- | ------------------- |
-| `-Location`          | Azure region                            | `eastasia`          |
-| `-OsType`            | Operating system (`Ubuntu` / `Windows`) | `Ubuntu`            |
-| `-VmSize`            | VM size                                 | `Standard_D4s_v5`   |
-| `-AdminUsername`     | Admin username                          | `azureclaw`         |
-| `-AdminPassword`     | Admin password                          | Auto-generated      |
-| `-ResourceGroup`     | Azure resource group name               | `rg-openclaw`       |
-| `-EnablePublicHttps` | Public HTTPS (Caddy + Let's Encrypt)    | **Enabled**         |
+| Parameter            | Description                             | Default           |
+| -------------------- | --------------------------------------- | ----------------- |
+| `-Location`          | Azure region                            | `eastasia`        |
+| `-OsType`            | Operating system (`Ubuntu` / `Windows`) | `Ubuntu`          |
+| `-VmSize`            | VM size                                 | `Standard_D4s_v5` |
+| `-AdminUsername`     | Admin username                          | `azureclaw`       |
+| `-AdminPassword`     | Admin password                          | Auto-generated    |
+| `-ResourceGroup`     | Azure resource group name               | `rg-openclaw`     |
+| `-EnablePublicHttps` | Public HTTPS (Caddy + Let's Encrypt)    | **Enabled**       |
 
 > **Windows users**: Windows 11 + WSL2 requires at least 8 GB RAM. Use `Standard_B2as_v2` or higher:
 > ```powershell
@@ -128,8 +128,10 @@ sudo systemctl status openclaw
 openclaw onboard
 
 # After onboard completes, open the Web UI with the correct password → browser shows "pairing required"
-# Then SSH approve:
-openclaw devices approve --latest
+# SSH approve (two steps: list to get the Request UUID, then approve by UUID).
+# Note: 'approve --latest' in 2026.4.15 only previews — it does NOT commit.
+openclaw devices list                 # copy the UUID from the Pending table
+openclaw devices approve <REQUEST_ID>
 
 # View Gateway logs
 journalctl -u openclaw -f
@@ -172,7 +174,8 @@ openclaw onboard --install-daemon
 
 # After onboard completes, open the Web UI with the correct password → browser shows "pairing required"
 # Then from PowerShell:
-wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest
+wsl -d Ubuntu -u openclaw -- openclaw devices list
+wsl -d Ubuntu -u openclaw -- openclaw devices approve <REQUEST_ID>
 
 # ---- Control Token (only needed for macOS / iOS / Android / CLI remote clients) ----
 # View current token
@@ -239,12 +242,12 @@ azure-claw/
 
 ## Recommended VM Sizes
 
-| Scenario  | Recommended VM Size | vCPU | RAM   | Notes                                      |
-| --------- | ------------------- | ---- | ----- | ------------------------------------------ |
-| Light use | Standard_B2als_v2   | 2    | 4 GB  | Basic Gateway + 1-2 channels (Ubuntu only) |
-| Daily use | Standard_B2as_v2    | 2    | 8 GB  | Multi-channel + Browser tools              |
-| **Default (recommended)** | **Standard_D4s_v5** | **4** | **16 GB** | **Default; multi-agent + Browser + sandbox with steady perf** |
-| Heavy use | Standard_B4as_v2    | 4    | 16 GB | Multi-agent + Browser + sandbox, cheaper but Burstable-throttled |
+| Scenario                  | Recommended VM Size | vCPU  | RAM       | Notes                                                            |
+| ------------------------- | ------------------- | ----- | --------- | ---------------------------------------------------------------- |
+| Light use                 | Standard_B2als_v2   | 2     | 4 GB      | Basic Gateway + 1-2 channels (Ubuntu only)                       |
+| Daily use                 | Standard_B2as_v2    | 2     | 8 GB      | Multi-channel + Browser tools                                    |
+| **Default (recommended)** | **Standard_D4s_v5** | **4** | **16 GB** | **Default; multi-agent + Browser + sandbox with steady perf**    |
+| Heavy use                 | Standard_B4as_v2    | 4     | 16 GB     | Multi-agent + Browser + sandbox, cheaper but Burstable-throttled |
 
 ## Security
 
@@ -261,7 +264,7 @@ azure-claw/
 
 ### Why does the first connection require pairing?
 
-OpenClaw Gateway uses a device pairing mechanism for security. Each new browser/device must be approved on the server by running `openclaw devices approve --latest`. Pairing is based on a device token stored in the browser — switching browsers, clearing data, or using private mode will require re-pairing.
+OpenClaw Gateway uses a device pairing mechanism for security. Each new browser/device must be approved on the server by running `openclaw devices approve <REQUEST_ID>`. Pairing is based on a device token stored in the browser — switching browsers, clearing data, or using private mode will require re-pairing.
 
 ### Which AI models are supported?
 

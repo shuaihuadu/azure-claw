@@ -712,29 +712,36 @@ OpenClaw Gateway requires a per-browser/per-client **device pairing** approval. 
 
 ### 12.1 First-time pairing flow
 
-> **Order matters**: the gateway only produces a pairing request after the browser's password check passes. If the password/token is wrong the browser gets a flat 401, the server never sees a pairing request, and `openclaw devices list --pending` stays empty — there is nothing for `approve` to act on.
+> **Order matters**: the gateway only produces a pairing request after the browser's password check passes. If the password/token is wrong the browser gets a flat 401, the server-side Pending table stays empty, and there is nothing for `approve` to act on.
 
 1. SSH into the VM and run `openclaw onboard` to configure your model API key (required after the first deploy)
 2. Open the Control UI in your browser (`https://<FQDN>` or `http://<IP>:18789`), enter `GATEWAY_PASSWORD`, click connect
 3. Browser shows `pairing required` / "waiting for server approval" (this confirms the password check passed)
-4. SSH into the VM (Windows: `wsl -d Ubuntu -u openclaw -- ...`) and run:
+4. SSH into the VM (Windows: `wsl -d Ubuntu -u openclaw -- ...`) and list the pending request to grab its Request UUID:
 
 ```bash
-openclaw devices approve --latest
+openclaw devices list
+# In the Pending table, copy the UUID from the "Request" column of your latest entry
 ```
 
-5. Browser auto-connects.
+5. Approve using that UUID (**note**: `openclaw devices approve --latest` in **2026.4.15** only previews the selection — it does NOT actually approve. You must pass the explicit ID):
+
+```bash
+openclaw devices approve <Request-UUID>
+```
+
+6. Browser auto-connects. Running `openclaw devices list` again should move the device from Pending into Paired.
 
 ### 12.2 Common commands
 
 ```bash
-openclaw devices list                    # list all paired devices
-openclaw devices list --pending          # only pending requests
-openclaw devices approve --latest        # approve the latest request
-openclaw devices approve <id>            # approve a specific request
-openclaw devices remove <id>             # revoke one device
+openclaw devices list                    # list all devices (Pending + Paired)
+openclaw devices approve <id>            # approve a specific Request ID (the right way)
+openclaw devices remove <id>             # revoke a paired device
 openclaw devices remove --all            # wipe all (every client must re-pair)
 ```
+
+> **About `--latest`**: in 2026.4.15, `openclaw devices approve --latest` only prints the selected request and ends with `Approve this exact request with: openclaw devices approve <id>`. It does NOT commit. Always use the explicit UUID form.
 
 ### 12.3 When you need to re-pair
 
@@ -748,8 +755,60 @@ Pairing is bound to a device token stored in browser local storage. The followin
 
 ### 12.4 Troubleshooting
 
-- **Browser stuck at "pairing required"**: server hasn't approved, or the gateway didn't push the event. Refresh the browser.
-- **`openclaw devices list --pending` is empty**: the request never reached the gateway. Check that origin isn't being blocked (§11.1) and the password is correct.
+#### Browser still shows "pairing required" (after running `approve`)
+
+Most common root cause: you ran `openclaw devices approve --latest`, but that subcommand in **2026.4.15** **only previews the selection** — it does not actually commit the approval. You'll see output like:
+
+```
+Selected pending device request 5bd8506c-6537-4cd2-aa76-ca719b3223ee
+  ...
+Approve this exact request with: openclaw devices approve 5bd8506c-6537-4cd2-aa76-ca719b3223ee
+```
+
+That `Approve this exact request with:` line is telling you nothing was committed. Run the full command it printed.
+
+**The correct two-step flow**:
+
+```bash
+# 1. List pending requests, copy the Request UUID
+openclaw devices list
+
+# 2. Approve by UUID
+openclaw devices approve <Request-UUID>
+
+# 3. List again to verify it moved into Paired
+openclaw devices list
+```
+
+If you followed the two-step flow and the browser is still stuck, check the following in order:
+
+**① Pending table is empty / your request isn't showing up**
+
+- Wrong password: gateway returns 401, and the Control UI sometimes renders 401 as "pairing required". Double-check `GATEWAY_PASSWORD` in `.env` (NOT `ADMIN_PASSWORD`).
+- Origin blocked: CORS / same-origin policy rejected the request. Add your origin per §11.1.
+- Stale page: hard-refresh (Cmd+Shift+R / Ctrl+F5), or use an incognito window and re-login.
+
+**② Multiple Pending entries**
+
+You've logged in with wrong password a few times, switched browsers, or cleared cookies — the table has accumulated stale requests. Use the `Age` column to find the `just now` one and pass its UUID to `approve`.
+
+**③ Approve committed but browser doesn't react**
+
+After approve, the gateway pushes an event over WebSocket, but the front-end occasionally misses it:
+
+- Hard-refresh the page (Cmd+Shift+R / Ctrl+F5)
+- Or clear the site's localStorage and log in again
+
+**④ Mix-up between ADMIN_PASSWORD and GATEWAY_PASSWORD**
+
+- `ADMIN_PASSWORD`: used for **SSH / RDP into the VM**
+- `GATEWAY_PASSWORD`: used for **browser login to the OpenClaw Web UI**
+
+They are two separate lines in `.env` — don't conflate them.
+
+#### Other cases
+
+- **`openclaw devices list` Pending table stays empty**: the request never reached the gateway. Check that origin isn't being blocked (§11.1) and the password is correct.
 - **Don't try to reuse a device record across people**: device tokens are private credentials. Sharing one means anyone with it can act as that device.
 
 ---

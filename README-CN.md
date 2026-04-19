@@ -70,15 +70,15 @@ OpenClaw 是一个自托管的 AI 助手网关，将 WhatsApp、Telegram、Disco
 
 部署参数说明：
 
-| 参数                 | 说明                                | 默认值              |
-| -------------------- | ----------------------------------- | ------------------- |
-| `-Location`          | Azure 区域                          | `eastasia`          |
-| `-OsType`            | 操作系统 (`Ubuntu` / `Windows`)     | `Ubuntu`            |
-| `-VmSize`            | VM 规格                             | `Standard_D4s_v5`   |
-| `-AdminUsername`     | 管理员用户名                        | `azureclaw`         |
-| `-AdminPassword`     | 管理员密码                          | 自动生成强密码      |
-| `-ResourceGroup`     | Azure 资源组名称                    | `rg-openclaw`       |
-| `-EnablePublicHttps` | 公网 HTTPS（Caddy + Let's Encrypt） | **开启**            |
+| 参数                 | 说明                                | 默认值            |
+| -------------------- | ----------------------------------- | ----------------- |
+| `-Location`          | Azure 区域                          | `eastasia`        |
+| `-OsType`            | 操作系统 (`Ubuntu` / `Windows`)     | `Ubuntu`          |
+| `-VmSize`            | VM 规格                             | `Standard_D4s_v5` |
+| `-AdminUsername`     | 管理员用户名                        | `azureclaw`       |
+| `-AdminPassword`     | 管理员密码                          | 自动生成强密码    |
+| `-ResourceGroup`     | Azure 资源组名称                    | `rg-openclaw`     |
+| `-EnablePublicHttps` | 公网 HTTPS（Caddy + Let's Encrypt） | **开启**          |
 
 > **Windows 用户注意**: Windows 11 + WSL2 至少需要 8GB 内存，建议使用 `Standard_B2as_v2` 或更高规格：
 > ```powershell
@@ -134,8 +134,10 @@ sudo systemctl status openclaw
 openclaw onboard
 
 # onboard 完成后，浏览器用正确密码登录 → 显示 "pairing required"
-# SSH 服务器审批：
-openclaw devices approve --latest
+# SSH 服务器审批（两步：先查 Request ID，再用 ID 审批）。
+# 注意：`approve --latest` 在 2026.4.15 只预览不审批，必须显式传 ID
+openclaw devices list                 # 从Pending表复制你的 Request UUID
+openclaw devices approve <REQUEST_ID>
 
 # 查看 Gateway 日志
 journalctl -u openclaw -f
@@ -177,8 +179,9 @@ openclaw doctor
 openclaw onboard --install-daemon
 
 # onboard 完成后，浏览器用正确密码登录 → 显示 "pairing required"
-# 在 PowerShell 中执行审批：
-wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest
+# 在 PowerShell 中执行审批（两步：先拿 Request ID，再审批）：
+wsl -d Ubuntu -u openclaw -- openclaw devices list
+wsl -d Ubuntu -u openclaw -- openclaw devices approve <REQUEST_ID>
 
 # ---- Control Token（macOS / iOS / Android / CLI 远程连接时需要）----
 # 查看当前 token
@@ -245,12 +248,12 @@ azure-claw/
 
 ## VM 规格建议
 
-| 场景         | 推荐 VM 规格      | vCPU | 内存  | 说明                                   |
-| ------------ | ----------------- | ---- | ----- | -------------------------------------- |
-| 个人轻度使用 | Standard_B2als_v2 | 2    | 4 GB  | 基础 Gateway + 1-2 个通道（仅 Ubuntu） |
-| 日常使用     | Standard_B2as_v2  | 2    | 8 GB  | 多通道 + Browser 工具                  |
+| 场景         | 推荐 VM 规格        | vCPU  | 内存      | 说明                                                  |
+| ------------ | ------------------- | ----- | --------- | ----------------------------------------------------- |
+| 个人轻度使用 | Standard_B2als_v2   | 2     | 4 GB      | 基础 Gateway + 1-2 个通道（仅 Ubuntu）                |
+| 日常使用     | Standard_B2as_v2    | 2     | 8 GB      | 多通道 + Browser 工具                                 |
 | **默认推荐** | **Standard_D4s_v5** | **4** | **16 GB** | **默认配置，满足多代理 + Browser + 沙箱**，性能稳定** |
-| 重度使用     | Standard_B4as_v2  | 4    | 16 GB | 多代理 + Browser + 沙箱，更低成本但受 Burstable 限制 |
+| 重度使用     | Standard_B4as_v2    | 4     | 16 GB     | 多代理 + Browser + 沙箱，更低成本但受 Burstable 限制  |
 
 ## 安全注意事项
 
@@ -267,7 +270,7 @@ azure-claw/
 
 ### 首次连接为什么要配对？
 
-OpenClaw Gateway 使用设备配对机制保障安全。每个新浏览器/设备首次连接时需要在服务器端执行 `openclaw devices approve --latest` 审批。配对基于浏览器存储的 device token，更换浏览器、清除数据或使用隐私模式都需要重新配对。
+OpenClaw Gateway 使用设备配对机制保障安全。每个新浏览器/设备首次连接时需要在服务器端执行 `openclaw devices approve <REQUEST_ID>` 审批。配对基于浏览器存储的 device token，更换浏览器、清除数据或使用隐私模式都需要重新配对。
 
 ### 支持哪些 AI 模型？
 

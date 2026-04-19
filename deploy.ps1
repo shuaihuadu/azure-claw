@@ -690,7 +690,7 @@ sudo systemctl restart openclaw
 
 > 详见 [运维手册 §10 Gateway Control Token](../../docs/zh/guide-operations.md#gateway-control-tokengatewayauthtoken)。
 
-> **首次连接节奏**：(三) 加白 Origin（如需）→ SSH 运行 ``openclaw onboard`` 配置模型 API Key → 浏览器用正确密码登录触发配对 → (四) 服务器端 ``openclaw devices approve --latest`` → ``openclaw doctor`` 自检。
+> **首次连接节奏**：(三) 加白 Origin（如需）→ SSH 运行 ``openclaw onboard`` 配置模型 API Key → 浏览器用正确密码登录触发配对 → (四) 服务器端 ``openclaw devices list`` 拿 Request ID → ``openclaw devices approve <id>`` → ``openclaw doctor`` 自检。
 
 ## 三、配置访问 Origin（如需追加）
 
@@ -711,10 +711,11 @@ sudo systemctl restart openclaw
 
 1. 在浏览器中打开 Web 控制台，输入 Gateway Password 后连接
 2. 页面会显示 **"pairing required"**，表示需要在服务器端审批
-3. SSH 登录服务器，执行以下命令审批最新的配对请求：
+3. SSH 登录服务器，先列出挂起请求拿到 Request ID，再用 ID 审批。**注意**：``openclaw devices approve --latest`` 在 2026.4.15 只预览不审批，必须显式传 ID：
 
 ``````bash
-openclaw devices approve --latest
+openclaw devices list                  # 从 Pending 表复制你这次登录对应的 Request UUID
+openclaw devices approve <REQUEST_ID>  # 用该 UUID 审批
 ``````
 
 4. 审批后浏览器会自动连接成功
@@ -723,7 +724,7 @@ openclaw devices approve --latest
 >
 > 常用设备管理命令：
 > - ``openclaw devices list`` — 查看已配对设备
-> - ``openclaw devices approve --latest`` — 审批最新请求
+> - ``openclaw devices approve <id>`` — 按 Request ID 审批（必须显式传 ID）
 > - ``openclaw devices remove <id>`` — 移除设备
 
 ## 五、清理资源
@@ -773,7 +774,7 @@ sudo systemctl restart openclaw
 
 > 详见 [运维手册 §10 Gateway Control Token](../../docs/zh/guide-operations.md#gateway-control-tokengatewayauthtoken)。
 
-> **首次连接节奏**：(三) 加白 Origin（**必做**）→ SSH 运行 ``openclaw onboard`` 配置模型 API Key → 浏览器用正确密码登录触发配对 → (四) 服务器端 ``openclaw devices approve --latest`` → ``openclaw doctor`` 自检。
+> **首次连接节奏**：(三) 加白 Origin（**必做**）→ SSH 运行 ``openclaw onboard`` 配置模型 API Key → 浏览器用正确密码登录触发配对 → (四) 服务器端 ``openclaw devices list`` 拿 Request ID → ``openclaw devices approve <id>`` → ``openclaw doctor`` 自检。
 
 ## 三、配置访问 Origin（必做）
 
@@ -793,10 +794,11 @@ sudo systemctl restart openclaw
 
 1. 在浏览器中打开 Web 控制台，输入 Gateway Password 后连接
 2. 页面会显示 **"pairing required"**，表示需要在服务器端审批
-3. SSH 登录服务器，执行以下命令审批最新的配对请求：
+3. SSH 登录服务器，先列出挂起请求拿到 Request ID，再用 ID 审批。**注意**：``openclaw devices approve --latest`` 在 2026.4.15 只预览不审批，必须显式传 ID：
 
 ``````bash
-openclaw devices approve --latest
+openclaw devices list                  # 从 Pending 表复制你这次登录对应的 Request UUID
+openclaw devices approve <REQUEST_ID>  # 用该 UUID 审批
 ``````
 
 4. 审批后浏览器会自动连接成功
@@ -805,7 +807,7 @@ openclaw devices approve --latest
 >
 > 常用设备管理命令：
 > - ``openclaw devices list`` — 查看已配对设备
-> - ``openclaw devices approve --latest`` — 审批最新请求
+> - ``openclaw devices approve <id>`` — 按 Request ID 审批（必须显式传 ID）
 > - ``openclaw devices remove <id>`` — 移除设备
 
 ## 五、清理资源
@@ -857,7 +859,7 @@ wsl -d Ubuntu -u openclaw -- sudo systemctl restart openclaw
 
 > 详见 [运维手册 §10 Gateway Control Token](../../docs/zh/guide-operations.md#gateway-control-tokengatewayauthtoken)。
 
-> **首次连接节奏**：(三) 加白 Origin（如需）→ SSH 运行 ``openclaw onboard`` 配置模型 API Key → 浏览器用正确密码登录触发配对 → (四) 服务器端 ``openclaw devices approve --latest`` → ``openclaw doctor`` 自检。
+> **首次连接节奏**：(三) 加白 Origin（如需）→ SSH 运行 ``openclaw onboard`` 配置模型 API Key → 浏览器用正确密码登录触发配对 → (四) 服务器端 ``openclaw devices list`` 拿 Request ID → ``openclaw devices approve <id>`` → ``openclaw doctor`` 自检。
 
 ## 三、配置访问 Origin（如需追加）
 
@@ -877,10 +879,11 @@ wsl -d Ubuntu -u openclaw -- sudo systemctl restart openclaw
 
 1. 在浏览器中打开 Web 控制台，输入 Gateway Password 后连接
 2. 页面会显示 **"pairing required"**，表示需要在服务器端审批
-3. RDP 登录服务器，打开 PowerShell 执行：
+3. RDP 登录服务器，打开 PowerShell 执行（两步：先列出拿 ID，再用 ID 审批）。**注意**：``approve --latest`` 在 2026.4.15 只预览不审批，必须显式传 ID：
 
 ``````powershell
-wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest
+wsl -d Ubuntu -u openclaw -- openclaw devices list
+wsl -d Ubuntu -u openclaw -- openclaw devices approve <REQUEST_ID>
 ``````
 
 4. 审批后浏览器会自动连接成功
@@ -889,7 +892,7 @@ wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest
 >
 > 常用设备管理命令：
 > - ``wsl -d Ubuntu -u openclaw -- openclaw devices list`` — 查看已配对设备
-> - ``wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest`` — 审批最新请求
+> - ``wsl -d Ubuntu -u openclaw -- openclaw devices approve <id>`` — 按 Request ID 审批（必须显式传 ID）
 > - ``wsl -d Ubuntu -u openclaw -- openclaw devices remove <id>`` — 移除设备
 
 ## 五、清理资源
@@ -945,10 +948,11 @@ wsl -d Ubuntu -u openclaw -- sudo systemctl restart openclaw
 
 1. 在浏览器中打开 Web 控制台，输入 Gateway Password 后连接
 2. 页面会显示 **"pairing required"**，表示需要在服务器端审批
-3. 在 RDP 桌面打开 PowerShell 执行：
+3. 在 RDP 桌面打开 PowerShell 执行（两步：先列出拿 ID，再用 ID 审批）。**注意**：``approve --latest`` 在 2026.4.15 只预览不审批，必须显式传 ID：
 
 ``````powershell
-wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest
+wsl -d Ubuntu -u openclaw -- openclaw devices list
+wsl -d Ubuntu -u openclaw -- openclaw devices approve <REQUEST_ID>
 ``````
 
 4. 审批后浏览器会自动连接成功
@@ -957,7 +961,7 @@ wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest
 >
 > 常用设备管理命令：
 > - ``wsl -d Ubuntu -u openclaw -- openclaw devices list`` — 查看已配对设备
-> - ``wsl -d Ubuntu -u openclaw -- openclaw devices approve --latest`` — 审批最新请求
+> - ``wsl -d Ubuntu -u openclaw -- openclaw devices approve <id>`` — 按 Request ID 审批（必须显式传 ID）
 > - ``wsl -d Ubuntu -u openclaw -- openclaw devices remove <id>`` — 移除设备
 
 ## 四、清理资源
