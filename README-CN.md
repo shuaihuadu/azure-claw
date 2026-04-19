@@ -214,10 +214,12 @@ azure-claw/
 ├── docs/                            # 操作手册
 │   ├── zh/                          # 中文文档
 │   │   ├── guide-operations.md          # 运维手册（服务排查、重启、日志、升级等）
+│   │   ├── guide-azure-foundry.md       # Azure Foundry / Azure OpenAI 多模型配置
 │   │   ├── guide-slack.md               # 配置 Slack 通道
 │   │   └── guide-teams.md               # 配置 Microsoft Teams 通道
 │   └── en/                          # English documentation
 │       ├── guide-operations.md
+│       ├── guide-azure-foundry.md
 │       ├── guide-slack.md
 │       └── guide-teams.md
 ├── infra/                           # Bicep 基础设施代码
@@ -308,6 +310,7 @@ wsl -d Ubuntu -- bash -c "sudo systemctl restart openclaw"
 
 - [配置 Slack 消息通道](docs/zh/guide-slack.md) — 在 Slack 中与 AI 助手对话
 - [配置 Microsoft Teams 消息通道](docs/zh/guide-teams.md) — 在 Teams 中与 AI 助手对话（提供半自动化配置脚本 `setup-teams.ps1`）
+- [Azure Foundry / Azure OpenAI 多模型配置](docs/zh/guide-azure-foundry.md) — `openai-completions` vs `openai-responses`、chat + reasoning 双 provider、per-model 细调
 - [运维手册](docs/zh/guide-operations.md) — 服务排查、重启、日志查看、升级、备份、安全巡检等日常运维操作
 
 ## 参考链接

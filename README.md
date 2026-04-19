@@ -208,10 +208,12 @@ azure-claw/
 ├── docs/                            # Operation guides
 │   ├── zh/                          # 中文文档 (Chinese)
 │   │   ├── guide-operations.md          # Operations handbook (service, logs, upgrades, etc.)
+│   │   ├── guide-azure-foundry.md       # Azure Foundry / Azure OpenAI multi-model config
 │   │   ├── guide-slack.md               # Configure Slack channel
 │   │   └── guide-teams.md               # Configure Microsoft Teams channel
 │   └── en/                          # English documentation
 │       ├── guide-operations.md
+│       ├── guide-azure-foundry.md
 │       ├── guide-slack.md
 │       └── guide-teams.md
 ├── infra/                           # Bicep infrastructure code
@@ -301,6 +303,7 @@ After deployment, refer to these guides to configure AI models and messaging cha
 
 - [Configure Slack Channel](docs/en/guide-slack.md) — Chat with your AI assistant in Slack
 - [Configure Microsoft Teams Channel](docs/en/guide-teams.md) — Chat with your AI assistant in Teams (includes semi-automated setup script `setup-teams.ps1`)
+- [Azure Foundry / Azure OpenAI Multi-Model Config](docs/en/guide-azure-foundry.md) — `openai-completions` vs `openai-responses`, chat + reasoning dual provider, per-model tuning
 - [Operations Handbook](docs/en/guide-operations.md) — Service management, logs, upgrades, backups, and security audits
 
 ## References
