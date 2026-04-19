@@ -214,7 +214,181 @@ Switch in Chat UI with `/model std`, `/model mini`, `/model think`.
 
 ---
 
-## 7. curl probe: which `api` does my deployment want?
+## 7. Real-world example: one Azure AI Foundry resource, 4 models
+
+This section is a **verified working config** from a live azure-claw deployment, with 4 deployments on a single Azure AI Foundry resource — OpenAI native and third-party models combined.
+
+### 7.1 Scenario
+
+- Foundry resource: `shuaihua-azureai-foundry.openai.azure.com`
+- 4 deployments (name = `models[].id`):
+  - `gpt-5.1-chat` — GPT-5.1 chat family
+  - `gpt-4.1` — GPT-4.1
+  - `Kimi-K2.5` — Moonshot Kimi K2.5 (third-party on Foundry)
+  - `DeepSeek-V3.2` — DeepSeek V3.2 (third-party on Foundry)
+- All 4 deployments require `max_completion_tokens`, not `max_tokens`
+- All 4 deployments reject Responses API server-side `store`
+
+### 7.2 Key findings
+
+Lessons learned the hard way:
+
+1. **Azure V1 endpoint accepts both `api` values for chat models.** GPT-4.1 returns 200 on either `openai-completions` or `openai-responses`, as long as you set both compat flags:
+   - `"compat": { "maxTokensField": "max_completion_tokens", "supportsStore": false }`
+2. **Third-party models** (Kimi / DeepSeek) on Azure Foundry **also require `max_completion_tokens`** — legacy `max_tokens` returns 400.
+3. **`apiKey` and `headers.api-key` may hold the same value simultaneously.** OpenClaw prefers `headers.api-key` (pass-through), with `apiKey` as provider-level fallback; writing both is redundant but safe. Prefer at least `apiKey` so `openclaw doctor` recognizes it.
+4. **Never install the user-level `openclaw-gateway.service`.** `openclaw onboard --install-daemon` installs a user-scope systemd unit that grabs port 18789 and conflicts with the system-scope `openclaw.service` installed by azure-claw. Symptom: endless restarts + `EADDRINUSE`. On an azure-claw VM, **never** run onboard with `--install-daemon`. If you did, clean up with:
+   ```bash
+   systemctl --user stop openclaw-gateway.service
+   systemctl --user disable openclaw-gateway.service
+   sudo systemctl restart openclaw
+   ```
+
+### 7.3 Complete config snippet
+
+```jsonc
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "microsoft-foundry/gpt-5.1-chat"
+      },
+      "models": {
+        "microsoft-foundry/gpt-5.1-chat": {},
+        "microsoft-foundry/gpt-4.1":      {},
+        "azure-openai/Kimi-K2.5":         {},
+        "azure-openai/DeepSeek-V3.2":     {}
+      }
+    }
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "microsoft-foundry": {
+        "baseUrl": "https://shuaihua-azureai-foundry.openai.azure.com/openai/v1",
+        "api": "openai-responses",                                 // openai-completions also works
+        "apiKey": "<AZURE_OPENAI_KEY>",
+        "headers": { "api-key": "<AZURE_OPENAI_KEY>" },            // Azure auth header
+        "models": [
+          {
+            "id": "gpt-5.1-chat",                                  // = Azure deployment name
+            "name": "gpt-5.1",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "contextWindow": 128000,
+            "maxTokens": 16384,
+            "compat": {
+              "supportsStore": false,                              // Azure rejects Responses server-side store
+              "maxTokensField": "max_completion_tokens"            // Required, else 400
+            }
+          },
+          {
+            "id": "gpt-4.1",
+            "name": "gpt-4.1",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "contextWindow": 128000,
+            "maxTokens": 16384,
+            "compat": {
+              "supportsStore": false,
+              "maxTokensField": "max_completion_tokens"
+            }
+          }
+        ]
+      },
+      "azure-openai": {
+        "baseUrl": "https://shuaihua-azureai-foundry.openai.azure.com/openai/v1",
+        "api": "openai-completions",                               // completions is the safer default for 3rd-party models
+        "apiKey": "<AZURE_OPENAI_KEY>",
+        "headers": { "api-key": "<AZURE_OPENAI_KEY>" },
+        "models": [
+          {
+            "id": "Kimi-K2.5",
+            "name": "Kimi-K2.5",
+            "reasoning": false,                                    // Kimi actually emits reasoning_content — see §7.4
+            "input": ["text", "image"],
+            "contextWindow": 128000,
+            "maxTokens": 16384,
+            "compat": {
+              "supportsStore": false,
+              "maxTokensField": "max_completion_tokens"
+            }
+          },
+          {
+            "id": "DeepSeek-V3.2",
+            "name": "DeepSeek-V3.2",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "contextWindow": 128000,
+            "maxTokens": 16384,
+            "compat": {
+              "supportsStore": false,
+              "maxTokensField": "max_completion_tokens"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+> **Security note**: in production, replace inline keys with `${AZURE_OPENAI_API_KEY}` and inject via systemd `Environment=AZURE_OPENAI_API_KEY=...` instead of storing plaintext in `openclaw.json`.
+
+### 7.4 Kimi-K2.5 reasoning behavior
+
+Direct curl:
+
+```bash
+curl -sS "$BASE/chat/completions" -H "api-key: $KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"Kimi-K2.5","messages":[{"role":"user","content":"hi"}],"max_completion_tokens":50}'
+```
+
+Returns:
+
+```jsonc
+{
+  "choices": [{
+    "finish_reason": "length",               // ← truncated
+    "message": {
+      "content": null,                        // ← empty final answer
+      "reasoning_content": "The user said hi..."  // ← reasoning trace
+    }
+  }]
+}
+```
+
+So Kimi-K2.5 on Azure is effectively a **reasoning model** — 50 tokens get consumed entirely by reasoning, leaving `content` null. Options:
+
+- Bump `maxTokens` to 4096+ (leaves room for both reasoning and answer)
+- Or move Kimi into a dedicated provider with `api: "openai-responses"` and set `"reasoning": true` on the model
+
+### 7.5 Verification checklist
+
+After editing config, verify in order:
+
+```bash
+# 1. Restart and wait for ready
+sudo systemctl restart openclaw
+sudo journalctl -u openclaw -f | grep -m1 "gateway] ready"
+
+# 2. curl Azure directly to confirm each deployment
+BASE="https://<res>.openai.azure.com/openai/v1"
+KEY="<your-key>"
+for M in gpt-5.1-chat gpt-4.1 Kimi-K2.5 DeepSeek-V3.2; do
+  printf "%-18s  " "$M"
+  curl -sS -o /dev/null -w "HTTP %{http_code}\n" "$BASE/chat/completions" \
+    -H "api-key: $KEY" -H "Content-Type: application/json" \
+    -d "{\"model\":\"$M\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_completion_tokens\":50}"
+done
+
+# 3. Open Control UI, enter Gateway password, send a test message
+```
+
+---
+
+## 8. curl probe: which `api` does my deployment want?
 
 Verify before editing config:
 
@@ -245,20 +419,23 @@ curl -sS -o /tmp/b.json -w "responses:   %{http_code}\n" \
 
 ---
 
-## 8. Common errors
+## 9. Common errors
 
-| Error                                                | Cause                                   | Fix                                                             |
-| ---------------------------------------------------- | --------------------------------------- | --------------------------------------------------------------- |
-| `Model not allowed`                                  | id not listed in `models[]`             | Add the deployment name to `models[]`                           |
-| `404 DeploymentNotFound`                             | Case / spelling mismatch                | Check Foundry portal for the exact deployment name              |
-| `400 The reasoning model requires the Responses API` | Reasoning model on `openai-completions` | Change provider `api` to `openai-responses`                     |
-| `401 Unauthorized`                                   | Wrong key or missing authHeader         | Add `"headers": { "authHeader": "api-key" }`                    |
-| `Messages content must be a string`                  | Legacy endpoint wants string content    | Set `"compat": { "requiresStringContent": true }` on that model |
-| `model not found: primary` at startup                | `primary` ref doesn't resolve           | Use full `provider/model` form                                  |
+| Error | Cause | Fix |
+| --- | --- | --- |
+| `Model not allowed` | id not listed in `models[]` | Add the deployment name to `models[]` |
+| `400 Unsupported parameter: 'max_tokens'` / `Use 'max_completion_tokens'` | Azure Foundry GPT-5.x / Kimi / DeepSeek no longer accept `max_tokens` | Add `"compat": { "maxTokensField": "max_completion_tokens" }` to that model |
+| `EADDRINUSE 127.0.0.1:18789` + systemd restart loop | A user-scope `openclaw-gateway.service` grabbed the port | `systemctl --user stop/disable openclaw-gateway.service && sudo systemctl restart openclaw` |
+| `404 DeploymentNotFound` | Case / spelling mismatch | Check Foundry portal for the exact deployment name |
+| `400 The reasoning model requires the Responses API` | Reasoning model on `openai-completions` | Change provider `api` to `openai-responses` |
+| `401 Unauthorized` | Wrong key or missing authHeader | Add `"headers": { "authHeader": "api-key" }` |
+| `Messages content must be a string` | Legacy endpoint wants string content | Set `"compat": { "requiresStringContent": true }` on that model |
+| `model not found: primary` at startup | `primary` ref doesn't resolve | Use full `provider/model` form |
+| Reply is `content: null` + `finish_reason: "length"` | Model is actually reasoning-capable, `maxTokens` too small | Raise `maxTokens` to 4096+, or move to an `openai-responses` provider with `reasoning: true` |
 
 ---
 
-## 9. Comparison with legacy `/openai/deployments` format
+## 10. Comparison with legacy `/openai/deployments` format
 
 You may have seen this in old Azure docs or old OpenClaw samples. **Don't use it**:
 
@@ -277,7 +454,7 @@ Problems: baseUrl hard-codes the deployment, **one provider = one model**, and e
 
 ---
 
-## 10. Related
+## 11. Related
 
 - Operations manual: [guide-operations.md](./guide-operations.md)
 - Slack channel: [guide-slack.md](./guide-slack.md)
