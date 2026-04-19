@@ -216,11 +216,11 @@ openclaw models status --probe   # 期望看到 4 条都绿
 
 ## 七、实战范例：Azure AI Foundry 单资源挂 4 个模型
 
-本节是**实际在 azure-claw 部署上验证通过的配置**，模型来自同一个 Azure AI Foundry 资源（`shuaihua-azureai-foundry`），包含 OpenAI 原生模型和第三方模型（Moonshot、DeepSeek 等）。
+本节是**实际在 azure-claw 部署上验证通过的配置**，模型来自同一个 Azure AI Foundry 资源（`<your-resource>`），包含 OpenAI 原生模型和第三方模型（Moonshot、DeepSeek 等）。
 
 ### 7.1 场景
 
-- Foundry resource: `shuaihua-azureai-foundry.openai.azure.com`
+- Foundry resource: `<your-resource>.openai.azure.com`
 - 4 个 deployment（名字 = `models[].id`）：
   - `gpt-5.1-chat` — GPT-5.1 chat family
   - `gpt-4.1` — GPT-4.1
@@ -265,7 +265,7 @@ openclaw models status --probe   # 期望看到 4 条都绿
     "mode": "merge",
     "providers": {
       "microsoft-foundry": {
-        "baseUrl": "https://shuaihua-azureai-foundry.openai.azure.com/openai/v1",
+        "baseUrl": "https://<your-resource>.openai.azure.com/openai/v1",
         "api": "openai-responses",                                 // 也可用 openai-completions
         "apiKey": "<AZURE_OPENAI_KEY>",
         "headers": { "api-key": "<AZURE_OPENAI_KEY>" },            // Azure 专用认证头
@@ -297,7 +297,7 @@ openclaw models status --probe   # 期望看到 4 条都绿
         ]
       },
       "azure-openai": {
-        "baseUrl": "https://shuaihua-azureai-foundry.openai.azure.com/openai/v1",
+        "baseUrl": "https://<your-resource>.openai.azure.com/openai/v1",
         "api": "openai-completions",                               // 第三方模型稳妥用 completions
         "apiKey": "<AZURE_OPENAI_KEY>",
         "headers": { "api-key": "<AZURE_OPENAI_KEY>" },
@@ -423,17 +423,17 @@ curl -sS -o /tmp/b.json -w "responses:   %{http_code}\n" \
 
 ## 九、常见报错排查
 
-| 报错                                                 | 原因                                         | 解决                                                      |
-| ---------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------- |
-| `Model not allowed`                                  | `models[]` 里没列该 id                       | 把 deployment 名加进 `models[]`                           |
-| `400 Unsupported parameter: 'max_tokens'` / `Use 'max_completion_tokens'` | Azure Foundry 的 GPT-5.x / Kimi / DeepSeek 等不再接受 `max_tokens` | 该 model 加 `"compat": { "maxTokensField": "max_completion_tokens" }` |
-| `EADDRINUSE 127.0.0.1:18789` + systemd 无限重启 | 装了 user-scope `openclaw-gateway.service` 抢占端口 | `systemctl --user stop/disable openclaw-gateway.service && sudo systemctl restart openclaw` |
-| `404 DeploymentNotFound`                             | Azure deployment 名大小写或拼写错            | Foundry 控制台确认 deployment name                        |
-| `400 The reasoning model requires the Responses API` | 推理模型走了 `openai-completions`            | 把这个 provider 的 `api` 改成 `openai-responses`          |
-| `401 Unauthorized`                                   | 密钥错或 authHeader 漏写                     | 补 `"headers": { "authHeader": "api-key" }`               |
-| `Messages content must be a string`                  | 老端点要求 string 内容                       | 该 model 加 `"compat": { "requiresStringContent": true }` |
-| Gateway 启动时 `model not found: primary`            | `primary` 里写的 ref 没配对上 provider/model | 用完整 `provider/model` 形式，别只写模型名                |
-| 回复 `content: null` + `finish_reason: "length"`      | 模型实际是 reasoning，`maxTokens` 太小被推理吞掉 | 把 `maxTokens` 调高到 4096+，或移到 `openai-responses` provider 并设 `reasoning: true` |
+| 报错                                                                      | 原因                                                               | 解决                                                                                        |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `Model not allowed`                                                       | `models[]` 里没列该 id                                             | 把 deployment 名加进 `models[]`                                                             |
+| `400 Unsupported parameter: 'max_tokens'` / `Use 'max_completion_tokens'` | Azure Foundry 的 GPT-5.x / Kimi / DeepSeek 等不再接受 `max_tokens` | 该 model 加 `"compat": { "maxTokensField": "max_completion_tokens" }`                       |
+| `EADDRINUSE 127.0.0.1:18789` + systemd 无限重启                           | 装了 user-scope `openclaw-gateway.service` 抢占端口                | `systemctl --user stop/disable openclaw-gateway.service && sudo systemctl restart openclaw` |
+| `404 DeploymentNotFound`                                                  | Azure deployment 名大小写或拼写错                                  | Foundry 控制台确认 deployment name                                                          |
+| `400 The reasoning model requires the Responses API`                      | 推理模型走了 `openai-completions`                                  | 把这个 provider 的 `api` 改成 `openai-responses`                                            |
+| `401 Unauthorized`                                                        | 密钥错或 authHeader 漏写                                           | 补 `"headers": { "authHeader": "api-key" }`                                                 |
+| `Messages content must be a string`                                       | 老端点要求 string 内容                                             | 该 model 加 `"compat": { "requiresStringContent": true }`                                   |
+| Gateway 启动时 `model not found: primary`                                 | `primary` 里写的 ref 没配对上 provider/model                       | 用完整 `provider/model` 形式，别只写模型名                                                  |
+| 回复 `content: null` + `finish_reason: "length"`                          | 模型实际是 reasoning，`maxTokens` 太小被推理吞掉                   | 把 `maxTokens` 调高到 4096+，或移到 `openai-responses` provider 并设 `reasoning: true`      |
 
 ---
 

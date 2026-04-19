@@ -220,7 +220,7 @@ This section is a **verified working config** from a live azure-claw deployment,
 
 ### 7.1 Scenario
 
-- Foundry resource: `shuaihua-azureai-foundry.openai.azure.com`
+- Foundry resource: `<your-resource>.openai.azure.com`
 - 4 deployments (name = `models[].id`):
   - `gpt-5.1-chat` — GPT-5.1 chat family
   - `gpt-4.1` — GPT-4.1
@@ -265,7 +265,7 @@ Lessons learned the hard way:
     "mode": "merge",
     "providers": {
       "microsoft-foundry": {
-        "baseUrl": "https://shuaihua-azureai-foundry.openai.azure.com/openai/v1",
+        "baseUrl": "https://<your-resource>.openai.azure.com/openai/v1",
         "api": "openai-responses",                                 // openai-completions also works
         "apiKey": "<AZURE_OPENAI_KEY>",
         "headers": { "api-key": "<AZURE_OPENAI_KEY>" },            // Azure auth header
@@ -297,7 +297,7 @@ Lessons learned the hard way:
         ]
       },
       "azure-openai": {
-        "baseUrl": "https://shuaihua-azureai-foundry.openai.azure.com/openai/v1",
+        "baseUrl": "https://<your-resource>.openai.azure.com/openai/v1",
         "api": "openai-completions",                               // completions is the safer default for 3rd-party models
         "apiKey": "<AZURE_OPENAI_KEY>",
         "headers": { "api-key": "<AZURE_OPENAI_KEY>" },
@@ -421,17 +421,17 @@ curl -sS -o /tmp/b.json -w "responses:   %{http_code}\n" \
 
 ## 9. Common errors
 
-| Error | Cause | Fix |
-| --- | --- | --- |
-| `Model not allowed` | id not listed in `models[]` | Add the deployment name to `models[]` |
-| `400 Unsupported parameter: 'max_tokens'` / `Use 'max_completion_tokens'` | Azure Foundry GPT-5.x / Kimi / DeepSeek no longer accept `max_tokens` | Add `"compat": { "maxTokensField": "max_completion_tokens" }` to that model |
-| `EADDRINUSE 127.0.0.1:18789` + systemd restart loop | A user-scope `openclaw-gateway.service` grabbed the port | `systemctl --user stop/disable openclaw-gateway.service && sudo systemctl restart openclaw` |
-| `404 DeploymentNotFound` | Case / spelling mismatch | Check Foundry portal for the exact deployment name |
-| `400 The reasoning model requires the Responses API` | Reasoning model on `openai-completions` | Change provider `api` to `openai-responses` |
-| `401 Unauthorized` | Wrong key or missing authHeader | Add `"headers": { "authHeader": "api-key" }` |
-| `Messages content must be a string` | Legacy endpoint wants string content | Set `"compat": { "requiresStringContent": true }` on that model |
-| `model not found: primary` at startup | `primary` ref doesn't resolve | Use full `provider/model` form |
-| Reply is `content: null` + `finish_reason: "length"` | Model is actually reasoning-capable, `maxTokens` too small | Raise `maxTokens` to 4096+, or move to an `openai-responses` provider with `reasoning: true` |
+| Error                                                                     | Cause                                                                 | Fix                                                                                          |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `Model not allowed`                                                       | id not listed in `models[]`                                           | Add the deployment name to `models[]`                                                        |
+| `400 Unsupported parameter: 'max_tokens'` / `Use 'max_completion_tokens'` | Azure Foundry GPT-5.x / Kimi / DeepSeek no longer accept `max_tokens` | Add `"compat": { "maxTokensField": "max_completion_tokens" }` to that model                  |
+| `EADDRINUSE 127.0.0.1:18789` + systemd restart loop                       | A user-scope `openclaw-gateway.service` grabbed the port              | `systemctl --user stop/disable openclaw-gateway.service && sudo systemctl restart openclaw`  |
+| `404 DeploymentNotFound`                                                  | Case / spelling mismatch                                              | Check Foundry portal for the exact deployment name                                           |
+| `400 The reasoning model requires the Responses API`                      | Reasoning model on `openai-completions`                               | Change provider `api` to `openai-responses`                                                  |
+| `401 Unauthorized`                                                        | Wrong key or missing authHeader                                       | Add `"headers": { "authHeader": "api-key" }`                                                 |
+| `Messages content must be a string`                                       | Legacy endpoint wants string content                                  | Set `"compat": { "requiresStringContent": true }` on that model                              |
+| `model not found: primary` at startup                                     | `primary` ref doesn't resolve                                         | Use full `provider/model` form                                                               |
+| Reply is `content: null` + `finish_reason: "length"`                      | Model is actually reasoning-capable, `maxTokens` too small            | Raise `maxTokens` to 4096+, or move to an `openai-responses` provider with `reasoning: true` |
 
 ---
 
