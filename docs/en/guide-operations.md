@@ -667,7 +667,7 @@ Or edit `~/.openclaw/openclaw.json` directly:
       // List every origin (scheme + host + port) you'll load the UI from in a browser.
       "allowedOrigins": [
         "https://openclaw-xxxx.japaneast.cloudapp.azure.com",
-        "http://20.48.19.109:18789"
+        "http://<your-vm-ip>:18789"
       ]
     }
   }
@@ -760,9 +760,9 @@ Pairing is bound to a device token stored in browser local storage. The followin
 Most common root cause: you ran `openclaw devices approve --latest`, but that subcommand in **2026.4.15** **only previews the selection** — it does not actually commit the approval. You'll see output like:
 
 ```
-Selected pending device request 5bd8506c-6537-4cd2-aa76-ca719b3223ee
+Selected pending device request <REQUEST_ID>
   ...
-Approve this exact request with: openclaw devices approve 5bd8506c-6537-4cd2-aa76-ca719b3223ee
+Approve this exact request with: openclaw devices approve <REQUEST_ID>
 ```
 
 That `Approve this exact request with:` line is telling you nothing was committed. Run the full command it printed.
