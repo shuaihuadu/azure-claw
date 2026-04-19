@@ -35,8 +35,6 @@ Azure Claw 要做的，就是把"云上跑"这件事收敛成一条命令。
 
 ## 这就是 Azure Claw 要解决的事
 
-> GitHub 仓库：[shuaihuadu/azure-claw](https://github.com/shuaihuadu/azure-claw)
-
 **一句话**：一条 PowerShell 命令，把 OpenClaw 部署到 Azure 上，带公网 HTTPS + 自动证书 + 密码认证，开机即用。
 
 ```powershell
