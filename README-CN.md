@@ -270,7 +270,7 @@ azure-claw/
 
 ### 首次连接为什么要配对？
 
-OpenClaw Gateway 使用设备配对机制保障安全。每个新浏览器/设备首次连接时需要在服务器端执行 `openclaw devices approve <REQUEST_ID>` 审批。配对基于浏览器存储的 device token，更换浏览器、清除数据或使用隐私模式都需要重新配对。
+OpenClaw Gateway 使用设备配对机制保障安全。每个新浏览器/设备首次连接时需要在服务器端 `openclaw devices list` 拿到挂起请求的 Request ID，再 `openclaw devices approve <id>` 审批（注意：`--latest` 在 2026.4.15 版本只预览不审批，必须显式传 ID）。配对基于浏览器存储的 device token，更换浏览器、清除数据或使用隐私模式都需要重新配对。
 
 ### 支持哪些 AI 模型？
 

@@ -80,7 +80,7 @@ Azure Claw 默认配置是：
 - **Caddy 反向代理**在 443 端口，Let's Encrypt 自动续签证书；
 - Gateway 绑定 loopback，外网只能走 HTTPS；
 - Gateway **强制密码认证**（`gateway.auth.mode: "password"`），密码自动生成 16 位强密码；
-- 新设备登录需要在服务器上 `openclaw devices approve <REQUEST_ID>` 审批，设备配对机制防止密码泄露后被滥用；
+- 新设备登录需要在服务器上 `openclaw devices list` 拿到 Request UUID，再 `openclaw devices approve <UUID>` 审批，设备配对机制防止密码泄露后被滥用；
 - systemd 管理，崩溃自动重启、开机自启。
 
 一句话：部署完就是"可以放心发给朋友用"的状态。
@@ -134,7 +134,7 @@ az login
 
 1. SSH 进 VM，运行 `openclaw onboard` 填 API Key、选通道（推荐先玩 Telegram，只需要一个 Bot Token）
 2. 浏览器打开 `https://<Azure 分配的域名>`，用 `.env` 里的 `GATEWAY_PASSWORD` 登录，页面会提示 "pairing required"
-3. 回到 SSH 执行 `openclaw devices approve <REQUEST_ID>` 审批这次配对
+3. 回到 SSH 先 `openclaw devices list` 拿到 Pending 里那条的 Request UUID，再 `openclaw devices approve <UUID>` 审批这次配对
 4. 掏出手机，打开 Telegram，开始聊
 
 ## 适合谁用

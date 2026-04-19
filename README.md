@@ -264,7 +264,7 @@ azure-claw/
 
 ### Why does the first connection require pairing?
 
-OpenClaw Gateway uses a device pairing mechanism for security. Each new browser/device must be approved on the server by running `openclaw devices approve <REQUEST_ID>`. Pairing is based on a device token stored in the browser — switching browsers, clearing data, or using private mode will require re-pairing.
+OpenClaw Gateway uses a device pairing mechanism for security. Each new browser/device must be approved on the server by running `openclaw devices list` to grab the pending Request UUID, then `openclaw devices approve <id>` (note: `--latest` in 2026.4.15 only previews, it does NOT commit). Pairing is based on a device token stored in the browser — switching browsers, clearing data, or using private mode will require re-pairing.
 
 ### Which AI models are supported?
 
